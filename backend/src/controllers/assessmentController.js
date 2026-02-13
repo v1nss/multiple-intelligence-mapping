@@ -5,28 +5,39 @@ import {
   Response as ResponseModel,
   Domain,
   User,
+  ComputedScore,
 } from '../models/index.js';
-import { runFullScoringPipeline, getAssessmentResults } from '../services/scoringService.js';
+import { runFullScoringPipeline, getAssessmentResults, computeStrandRanking } from '../services/scoringService.js';
+import sequelize from '../config/db.js';
 
 /**
  * POST /assessments/start
+ * Uses a transaction with row-level locking to prevent race conditions
+ * where two simultaneous requests could both create in-progress assessments.
  */
 export const startAssessment = async (req, res) => {
+  const t = await sequelize.transaction();
   try {
     const userId = req.user.id;
 
+    // Lock the user's in-progress assessments row to prevent race conditions
     const existing = await Assessment.findOne({
       where: { user_id: userId, status: 'in_progress' },
+      lock: t.LOCK.UPDATE,
+      transaction: t,
     });
     if (existing) {
+      await t.rollback();
       return res.status(409).json({ error: 'You already have an in-progress assessment', assessment_id: existing.id });
     }
 
     const version = await AssessmentVersion.findOne({
       where: { is_active: true },
       order: [['id', 'DESC']],
+      transaction: t,
     });
     if (!version) {
+      await t.rollback();
       return res.status(500).json({ error: 'No active assessment version found' });
     }
 
@@ -34,17 +45,21 @@ export const startAssessment = async (req, res) => {
       user_id: userId,
       version_id: version.id,
       status: 'in_progress',
-    });
+    }, { transaction: t });
 
     const totalQuestions = await Question.count({
       where: { version_id: version.id, is_active: true },
+      transaction: t,
     });
+
+    await t.commit();
 
     res.status(201).json({
       message: 'Assessment started',
       assessment: { id: assessment.id, version_id: assessment.version_id, started_at: assessment.started_at, status: assessment.status, total_questions: totalQuestions },
     });
   } catch (err) {
+    await t.rollback();
     console.error('Start assessment error:', err);
     res.status(500).json({ error: 'Server error' });
   }
@@ -184,11 +199,41 @@ export const getHistory = async (req, res) => {
       order: [['started_at', 'DESC']],
     });
 
-    res.json({
-      assessments: assessments.map(a => ({
-        id: a.id, status: a.status, started_at: a.started_at, completed_at: a.completed_at, version_name: a.version.version_name,
-      })),
-    });
+    // For completed assessments, include top MI domain and top strand
+    const results = [];
+    for (const a of assessments) {
+      const entry = {
+        id: a.id, status: a.status, started_at: a.started_at, completed_at: a.completed_at,
+        version_name: a.version.version_name, top_mi: null, top_strand: null,
+      };
+
+      if (a.status === 'completed') {
+        // Get the top MI score
+        const topMI = await ComputedScore.findOne({
+          where: { assessment_id: a.id },
+          include: [{ model: Domain, as: 'domain', where: { type: 'MI' }, attributes: ['name'] }],
+          order: [['normalized_score', 'DESC']],
+        });
+        if (topMI) entry.top_mi = topMI.domain.name;
+
+        // Get the top strand
+        const scores = await ComputedScore.findAll({
+          where: { assessment_id: a.id },
+          raw: true,
+        });
+        if (scores.length > 0) {
+          const domainScores = scores.map(s => ({
+            domain_id: s.domain_id,
+            normalized_score: parseFloat(s.normalized_score),
+          }));
+          const strandRanking = await computeStrandRanking(domainScores);
+          if (strandRanking.length > 0) entry.top_strand = strandRanking[0].strand;
+        }
+      }
+      results.push(entry);
+    }
+
+    res.json({ assessments: results });
   } catch (err) {
     console.error('Get history error:', err);
     res.status(500).json({ error: 'Server error' });

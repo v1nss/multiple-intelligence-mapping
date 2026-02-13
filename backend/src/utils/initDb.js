@@ -8,6 +8,7 @@ import {
   CareerWeight,
   Question,
 } from '../models/index.js';
+import { seedUsersWithResults } from './seedUsers.js';
 
 /**
  * Initialize the database: sync models + seed reference data.
@@ -31,6 +32,10 @@ export async function initializeDatabase() {
     await seedQuestions();
 
     console.log('Seed data loaded.');
+
+    // Seed demo users with completed assessments (idempotent)
+    await seedUsersWithResults();
+
     return true;
   } catch (err) {
     console.error('Database initialization error:', err.message);

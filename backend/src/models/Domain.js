@@ -29,6 +29,9 @@ const Domain = sequelize.define('Domain', {
 }, {
   tableName: 'domains',
   timestamps: false,
+  indexes: [
+    { unique: true, fields: ['name', 'type'] },
+  ],
 });
 
 export default Domain;

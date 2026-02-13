@@ -149,17 +149,84 @@ export const getAnalytics = async (req, res) => {
       subQuery: false,
     });
 
-    // Recent assessments
+    // Active students (those with at least one in_progress assessment)
+    const activeStudents = await Assessment.count({
+      where: { status: 'in_progress' },
+      distinct: true,
+      col: 'user_id',
+    });
+
+    // Recent assessments with top strand result
     const recentAssessments = await Assessment.findAll({
-      include: [{ model: User, as: 'user', attributes: ['first_name', 'last_name', 'email'] }],
+      include: [
+        { model: User, as: 'user', attributes: ['first_name', 'last_name', 'email'] },
+        { model: AssessmentVersion, as: 'version', attributes: ['version_name'] },
+      ],
       order: [['started_at', 'DESC']],
       limit: 20,
     });
 
+    const recentResults = [];
+    for (const a of recentAssessments) {
+      const entry = {
+        id: a.id, status: a.status, started_at: a.started_at, completed_at: a.completed_at,
+        first_name: a.user.first_name, last_name: a.user.last_name, email: a.user.email,
+        version_name: a.version?.version_name || 'N/A',
+        top_strand: null,
+      };
+      if (a.status === 'completed') {
+        const scores = await ComputedScore.findAll({ where: { assessment_id: a.id }, raw: true });
+        const scoreMap = {};
+        scores.forEach(s => { scoreMap[s.domain_id] = parseFloat(s.normalized_score); });
+        let bestStrand = null;
+        let bestScore = -1;
+        const strandScoreMap = {};
+        for (const w of allWeights) {
+          const sid = w.strand_id;
+          if (!strandScoreMap[sid]) strandScoreMap[sid] = { name: w.strand.name, score: 0 };
+          strandScoreMap[sid].score += (scoreMap[w.domain_id] || 0) * w.weight;
+        }
+        for (const [, s] of Object.entries(strandScoreMap)) {
+          if (s.score > bestScore) { bestScore = s.score; bestStrand = s.name; }
+        }
+        entry.top_strand = bestStrand;
+      }
+      recentResults.push(entry);
+    }
+
+    // Strand ranking with average scores across all completed assessments
+    const strandAvgScores = {};
+    for (const { id } of completedIds) {
+      const scores = await ComputedScore.findAll({ where: { assessment_id: id }, raw: true });
+      const scoreMap = {};
+      scores.forEach(s => { scoreMap[s.domain_id] = parseFloat(s.normalized_score); });
+      const strandScoreMap = {};
+      for (const w of allWeights) {
+        const sid = w.strand_id;
+        if (!strandScoreMap[sid]) strandScoreMap[sid] = { name: w.strand.name, score: 0 };
+        strandScoreMap[sid].score += (scoreMap[w.domain_id] || 0) * w.weight;
+      }
+      for (const [sid, s] of Object.entries(strandScoreMap)) {
+        if (!strandAvgScores[sid]) strandAvgScores[sid] = { name: s.name, total: 0, count: 0 };
+        strandAvgScores[sid].total += s.score;
+        strandAvgScores[sid].count++;
+      }
+    }
+    const strandRanking = Object.values(strandAvgScores)
+      .map(s => ({ strand: s.name, avg_score: parseFloat((s.total / s.count).toFixed(4)) }))
+      .sort((a, b) => b.avg_score - a.avg_score);
+
     res.json({
-      summary: { total_students: totalStudents, total_assessments: totalAssessments, completed_assessments: completedAssessments, participation_rate: participationRate },
+      summary: {
+        total_students: totalStudents,
+        total_assessments: totalAssessments,
+        completed_assessments: completedAssessments,
+        participation_rate: participationRate,
+        active_students: activeStudents,
+      },
       dominant_mi: dominantMIResult,
       strand_distribution: strandDistResult,
+      strand_ranking: strandRanking,
       avg_mi_scores: avgMIScores.map(r => ({ name: r.domain.name, avg_score: parseFloat(parseFloat(r.avg_score).toFixed(4)) })),
       avg_riasec_scores: avgRIASECScores.map(r => ({ name: r.domain.name, avg_score: parseFloat(parseFloat(r.avg_score).toFixed(4)) })),
       gender_trends: genderTrends.map(r => ({
@@ -168,10 +235,7 @@ export const getAnalytics = async (req, res) => {
         type: r.domain.type,
         avg_score: parseFloat(parseFloat(r.avg_score).toFixed(4)),
       })),
-      recent_assessments: recentAssessments.map(a => ({
-        id: a.id, status: a.status, started_at: a.started_at, completed_at: a.completed_at,
-        first_name: a.user.first_name, last_name: a.user.last_name, email: a.user.email,
-      })),
+      recent_assessments: recentResults,
     });
   } catch (err) {
     console.error('Admin analytics error:', err);

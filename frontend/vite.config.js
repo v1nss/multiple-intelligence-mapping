@@ -14,10 +14,7 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      '/auth': 'http://localhost:5000',
-      '/assessments': 'http://localhost:5000',
-      '/admin': 'http://localhost:5000',
-      '/health': 'http://localhost:5000',
+      '/api': 'http://localhost:5000',
     },
   },
 })

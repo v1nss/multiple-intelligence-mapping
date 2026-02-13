@@ -14,9 +14,9 @@ export default function AdminQuestions() {
   const fetchAll = async () => {
     try {
       const [qRes, dRes, vRes] = await Promise.all([
-        api.get('/admin/questions'),
-        api.get('/admin/domains'),
-        api.get('/admin/versions'),
+        api.get('/api/admin/questions'),
+        api.get('/api/admin/domains'),
+        api.get('/api/admin/versions'),
       ]);
       setQuestions(qRes.data.questions || []);
       setDomains(dRes.data.domains || []);
@@ -32,7 +32,7 @@ export default function AdminQuestions() {
   const handleCreate = async (e) => {
     e.preventDefault();
     try {
-      await api.post('/admin/questions', { ...form, domain_id: parseInt(form.domain_id), version_id: parseInt(form.version_id), order_index: parseInt(form.order_index) });
+      await api.post('/api/admin/questions', { ...form, domain_id: parseInt(form.domain_id), version_id: parseInt(form.version_id), order_index: parseInt(form.order_index) });
       resetForm();
       fetchAll();
     } catch (err) { setError(err.response?.data?.error || 'Failed to create question'); }
@@ -41,7 +41,7 @@ export default function AdminQuestions() {
   const handleUpdate = async (e) => {
     e.preventDefault();
     try {
-      await api.put(`/admin/questions/${editing}`, { question_text: form.question_text, domain_id: parseInt(form.domain_id), order_index: parseInt(form.order_index) });
+      await api.put(`/api/admin/questions/${editing}`, { question_text: form.question_text, domain_id: parseInt(form.domain_id), order_index: parseInt(form.order_index) });
       resetForm();
       fetchAll();
     } catch (err) { setError(err.response?.data?.error || 'Failed to update question'); }
@@ -49,7 +49,7 @@ export default function AdminQuestions() {
 
   const handleDeactivate = async (id) => {
     try {
-      await api.delete(`/admin/questions/${id}`);
+      await api.delete(`/api/admin/questions/${id}`);
       fetchAll();
     } catch (err) { setError(err.response?.data?.error || 'Failed to deactivate question'); }
   };

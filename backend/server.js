@@ -40,13 +40,13 @@ app.use(globalLimiter);
 // ──────────────────────────────────────────
 // Routes
 // ──────────────────────────────────────────
-app.use('/auth', authRoutes);
-app.use('/assessments', assessmentRoutes);
-app.use('/admin', adminRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/assessments', assessmentRoutes);
+app.use('/api/admin', adminRoutes);
 
-app.use('/assessments/:id/submit', submissionLimiter);
+app.use('/api/assessments/:id/submit', submissionLimiter);
 
-app.get('/health', (req, res) => {
+app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
