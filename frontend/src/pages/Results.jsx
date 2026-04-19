@@ -187,7 +187,6 @@ export default function Results() {
 
   /* ── Derived data ── */
   const topMI = result.mi_scores?.[0];
-  const topPct = topMI ? Math.round(topMI.normalized_score * 100) : 0;
   const topStrand = result.strand_ranking?.[0];
   const topMINames = result.mi_scores?.slice(0, 2).map(s => MI_RADAR_SHORT[s.domain] || s.domain).join(' and ') || '';
   const learning = MI_LEARNING[topMI?.domain] || MI_LEARNING['Interpersonal'];
@@ -230,41 +229,68 @@ export default function Results() {
       </div>
 
       {/* ═══════════════════════════════════════════
-          TOP SECTION: Hero + Sidebar
+          HERO: Recommended Strand
+          ═══════════════════════════════════════════ */}
+      <div className="relative bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-600 rounded-2xl p-6 sm:p-8 text-white overflow-hidden mb-8">
+        <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/4" />
+        <div className="absolute bottom-0 left-1/3 w-64 h-64 bg-white/5 rounded-full translate-y-1/2" />
+        <div className="absolute top-1/2 right-1/4 w-32 h-32 bg-white/5 rounded-full" />
+
+        <div className="relative z-10">
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full mb-4">
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.331 0 4.476.884 6.042 2.346C13.524 18.884 15.669 18 18 18a8.987 8.987 0 013-.512V4.262A8.968 8.968 0 0018 3.75a8.967 8.967 0 00-6 2.292z" />
+            </svg>
+            Recommended Strand
+          </span>
+
+          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6">
+            <div className="flex-1">
+              <h2 className="text-3xl sm:text-4xl font-black mb-1">{topStrand?.strand || '—'}</h2>
+              <p className="text-white/70 text-sm font-medium mb-3">{STRAND_FULL[topStrand?.strand] || ''}</p>
+              <p className="text-white/80 text-sm leading-relaxed max-w-xl">
+                {topStrand && STRAND_WHY[topStrand.strand]
+                  ? STRAND_WHY[topStrand.strand](topMINames)
+                  : 'Your intelligence profile aligns well with this strand.'}
+              </p>
+            </div>
+            <div className="shrink-0 flex items-center gap-3">
+              {topStrand && (
+                <div className="bg-white/15 backdrop-blur-sm rounded-xl px-5 py-3 text-center border border-white/20">
+                  <div className="text-[10px] font-bold uppercase tracking-wide text-white/70">Match</div>
+                  <div className="text-3xl font-black">{Math.round((topStrand.score || 0) * 100)}%</div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Other strands inline */}
+          {result.strand_ranking?.length > 1 && (
+            <div className="mt-5 pt-4 border-t border-white/15 flex flex-wrap gap-2">
+              {result.strand_ranking.slice(1, 4).map((s, i) => (
+                <span key={s.strand_id || i} className="inline-flex items-center gap-1.5 text-[11px] font-semibold bg-white/10 backdrop-blur-sm px-3 py-1.5 rounded-lg border border-white/10">
+                  <span className="text-white/50">#{i + 2}</span>
+                  <span>{s.strand}</span>
+                  <span className="text-white/50">{Math.round((s.score || 0) * 100)}%</span>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ═══════════════════════════════════════════
+          MAIN CONTENT: Charts + Sidebar
           ═══════════════════════════════════════════ */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
 
         {/* LEFT 2/3 */}
         <div className="lg:col-span-2 space-y-6">
 
-          {/* ── Top Intelligence Hero ── */}
-          <div className="relative bg-gradient-to-r from-blue-600 to-blue-500 rounded-2xl p-6 sm:p-8 text-white overflow-hidden">
-            <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/4"></div>
-            <div className="absolute bottom-0 left-1/2 w-60 h-60 bg-white/5 rounded-full translate-y-1/2"></div>
-            <div className="relative z-10">
-              <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full mb-3">
-                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" /></svg>
-                Top Intelligence
-              </span>
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1">
-                  <h2 className="text-3xl sm:text-4xl font-bold mb-2">{topMI?.domain || '—'}</h2>
-                  <p className="text-white/80 text-sm leading-relaxed max-w-lg">
-                    {MI_FULL_DESC[topMI?.domain] || ''}
-                  </p>
-                </div>
-                <div className="shrink-0 bg-green-400 text-green-900 rounded-xl px-4 py-3 text-center shadow-lg">
-                  <div className="text-[10px] font-bold uppercase tracking-wide opacity-80">Score</div>
-                  <div className="text-3xl font-black">{topPct}%</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
           {/* ── Profile Balance + Learning Style ── */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-            {/* Radar Chart - Profile Balance */}
+            {/* Radar Chart */}
             <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-lg">🎯</span>
@@ -309,43 +335,23 @@ export default function Results() {
         {/* RIGHT 1/3 SIDEBAR */}
         <div className="space-y-6">
 
-          {/* ── Recommended Strand ── */}
-          <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm text-center">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Recommended Strand</h3>
-            <div className="flex justify-center mb-3">
-              <div className="w-14 h-14 rounded-2xl bg-blue-100 flex items-center justify-center">
-                <svg className="w-7 h-7 text-blue-600" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.331 0 4.476.884 6.042 2.346C13.524 18.884 15.669 18 18 18a8.987 8.987 0 013-.512V4.262A8.968 8.968 0 0018 3.75a8.967 8.967 0 00-6 2.292z" />
-                </svg>
-              </div>
-            </div>
-            <h4 className="text-2xl font-black text-gray-900">{topStrand?.strand || '—'}</h4>
-            <p className="text-xs text-gray-400 mt-0.5">{STRAND_FULL[topStrand?.strand] || ''}</p>
-
-            <div className="mt-5 text-left border-t border-gray-100 pt-4">
-              <h5 className="text-xs font-bold uppercase tracking-wider text-gray-900 mb-2">Why This Fits You</h5>
-              <p className="text-xs text-gray-500 leading-relaxed">
-                {topStrand && STRAND_WHY[topStrand.strand]
-                  ? STRAND_WHY[topStrand.strand](topMINames)
-                  : 'Your intelligence profile aligns well with this strand.'}
-              </p>
-            </div>
-          </div>
-
           {/* ── Top Career Matches ── */}
           <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Top Career Matches</h3>
-            <div className="space-y-4">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-lg">🎯</span>
+              <h3 className="text-base font-bold text-gray-900">Top Career Matches</h3>
+            </div>
+            <div className="space-y-3">
               {topCareers.map((c, i) => {
                 const pct = Math.round(c.score * 100);
                 return (
                   <div key={i} className="flex items-start gap-3">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0 ${i === 0 ? 'bg-purple-600' : i === 1 ? 'bg-blue-600' : i === 2 ? 'bg-teal-600' : 'bg-gray-400'}`}>
-                      {i === 0 ? '🎓' : i + 1}
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0 ${i === 0 ? 'bg-purple-600' : i === 1 ? 'bg-blue-600' : i === 2 ? 'bg-teal-600' : 'bg-gray-400'}`}>
+                      {i + 1}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-sm font-bold text-gray-900 truncate">{c.career}</span>
+                        <span className="text-sm font-semibold text-gray-900 truncate">{c.career}</span>
                         <span className={`text-[10px] font-bold text-white px-2 py-0.5 rounded-full shrink-0 ${matchBadge(pct)}`}>{pct}%</span>
                       </div>
                       <p className="text-[11px] text-gray-400 leading-snug mt-0.5">{c.description}</p>

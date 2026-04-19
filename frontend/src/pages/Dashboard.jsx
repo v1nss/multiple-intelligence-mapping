@@ -136,8 +136,9 @@ export default function Dashboard() {
       }
     }).catch(() => setResultLoading(false));
   }, []);
-
+console.log(latestResult)
   /* ── Derived data from latest result ── */
+  const dominantRiasec = latestResult?.riasec_scores?.[0];
   const dominantMI = latestResult?.mi_scores?.[0];
   const topStrand = latestResult?.strand_ranking?.[0];
   const overallStrength = latestResult?.mi_scores?.[0]; // highest MI
@@ -212,9 +213,9 @@ export default function Dashboard() {
             {/* Overall MI Strength */}
             <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow transition">
               <SparkIcon />
-              <p className="text-xs text-gray-400 font-medium mt-3 uppercase tracking-wider">Overall MI Strength</p>
-              <p className="text-xl font-bold text-gray-900 mt-1">{overallStrength?.domain || '—'}</p>
-              <p className="text-xs text-gray-400">{MI_DESC[overallStrength?.domain] || ''}</p>
+              <p className="text-xs text-gray-400 font-medium mt-3 uppercase tracking-wider">Dominant Interest</p>
+              <p className="text-xl font-bold text-gray-900 mt-1">{dominantRiasec?.domain || '—'}</p>
+              <p className="text-xs text-gray-400">RIASEC</p> {/*{MI_DESC[overallStrength?.domain] || ''} */}
             </div>
 
             {/* Top Recommendation */}
