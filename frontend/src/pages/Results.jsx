@@ -409,13 +409,14 @@ export default function Results() {
           <p className="text-xs text-gray-400 mb-4">Your Holland Code: <span className="font-bold text-gray-700">{result.riasec_scores.slice(0, 3).map(r => r.domain[0]).join('')}</span></p>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             {result.riasec_scores.map((s, i) => {
-              const pct = Math.round(s.normalized_score * 100);
+              console.log(s);
+              const pct = s.raw_score; // Math.round(s.normalized_score * 100);
               const isTop = i < 3;
               return (
                 <div key={s.domain_id} className={`rounded-xl p-4 text-center ${isTop ? 'bg-blue-50 border border-blue-200' : 'bg-gray-50 border border-gray-200'}`}>
                   <div className={`text-2xl font-black ${isTop ? 'text-blue-600' : 'text-gray-400'}`}>{s.domain[0]}</div>
                   <p className="text-xs font-semibold text-gray-700 mt-1">{s.domain}</p>
-                  <p className={`text-sm font-bold mt-1 ${isTop ? 'text-blue-600' : 'text-gray-500'}`}>{pct}%</p>
+                  <p className={`text-sm font-bold mt-1 ${isTop ? 'text-blue-600' : 'text-gray-500'}`}>{pct}/18</p>
                 </div>
               );
             })}
@@ -426,7 +427,7 @@ export default function Results() {
       {/* ═══════════════════════════════════════════
           STRAND RANKING
           ═══════════════════════════════════════════ */}
-      {result.strand_ranking?.length > 0 && (
+      {/* {result.strand_ranking?.length > 0 && (
         <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm mb-8">
           <h2 className="text-lg font-bold text-gray-900 mb-4">SHS Strand Compatibility</h2>
           <div className="space-y-3">
@@ -448,7 +449,7 @@ export default function Results() {
             })}
           </div>
         </div>
-      )}
+      )} */}
     </div>
   );
 }

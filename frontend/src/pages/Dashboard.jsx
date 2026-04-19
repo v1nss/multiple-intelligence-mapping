@@ -146,7 +146,7 @@ export default function Dashboard() {
   // Bar chart data (MI scores only)
   const miBarData = (latestResult?.mi_scores || []).map(s => ({
     name: MI_SHORT[s.domain] || s.domain,
-    value: Math.round(s.normalized_score * 100),
+    value: s.raw_score, // Math.round(s.normalized_score * 100)
   }));
 
   // Top 4 career suggestions
@@ -209,20 +209,20 @@ export default function Dashboard() {
               <p className="text-xs text-gray-400">{MI_DESC[dominantMI?.domain] || ''}</p>
             </div>
 
-            {/* Top Recommendation */}
-            <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow transition">
-              <ShieldIcon />
-              <p className="text-xs text-gray-400 font-medium mt-3 uppercase tracking-wider">Top Recommendation</p>
-              <p className="text-xl font-bold text-gray-900 mt-1">{topStrand?.strand || '—'}</p>
-              <p className="text-xs text-gray-400">Recommended Strand</p>
-            </div>
-
             {/* Overall MI Strength */}
             <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow transition">
               <SparkIcon />
               <p className="text-xs text-gray-400 font-medium mt-3 uppercase tracking-wider">Overall MI Strength</p>
               <p className="text-xl font-bold text-gray-900 mt-1">{overallStrength?.domain || '—'}</p>
               <p className="text-xs text-gray-400">{MI_DESC[overallStrength?.domain] || ''}</p>
+            </div>
+
+            {/* Top Recommendation */}
+            <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow transition">
+              <ShieldIcon />
+              <p className="text-xs text-gray-400 font-medium mt-3 uppercase tracking-wider">Top Recommendation</p>
+              <p className="text-xl font-bold text-gray-900 mt-1">{topStrand?.strand || '—'}</p>
+              <p className="text-xs text-gray-400">Recommended Strand</p>
             </div>
 
             {/* Total Completed */}
@@ -245,7 +245,7 @@ export default function Dashboard() {
                 <BarChart data={miBarData} margin={{ top: 5, right: 5, left: -15, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                   <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#6B7280' }} interval={0} angle={-25} textAnchor="end" height={50} />
-                  <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: '#9CA3AF' }} />
+                  <YAxis domain={[0, 20]} tick={{ fontSize: 10, fill: '#9CA3AF' }} />
                   <Tooltip formatter={(v) => [`${v}%`, 'Score']} contentStyle={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 12 }} />
                   <Bar dataKey="value" radius={[4, 4, 0, 0]} barSize={22}>
                     {miBarData.map((_, i) => (
@@ -274,14 +274,14 @@ export default function Dashboard() {
                   );
                 })}
               </div>
-              {latestResult?.career_suggestions?.length > 4 && (
+              {/* {latestResult?.career_suggestions?.length > 4 && (
                 <Link
                   to={`/results/${completedHistory[0]?.id}`}
                   className="flex items-center justify-center gap-1 text-xs font-semibold text-gray-500 hover:text-blue-600 mt-4 transition"
                 >
                   Explore All Careers <span>→</span>
                 </Link>
-              )}
+              )} */}
             </div>
 
             {/* Top Strand */}

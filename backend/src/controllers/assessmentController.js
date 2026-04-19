@@ -189,6 +189,31 @@ export const getResult = async (req, res) => {
 };
 
 /**
+ * DELETE /assessments/:id
+ */
+export const deleteAssessment = async (req, res) => {
+  const t = await sequelize.transaction();
+  try {
+    const assessment = await Assessment.findByPk(req.params.id, { transaction: t });
+    if (!assessment) {
+      await t.rollback();
+      return res.status(404).json({ error: 'Assessment not found' });
+    }
+
+    await ComputedScore.destroy({ where: { assessment_id: assessment.id }, transaction: t });
+    await ResponseModel.destroy({ where: { assessment_id: assessment.id }, transaction: t });
+    await assessment.destroy({ transaction: t });
+
+    await t.commit();
+    res.json({ message: 'Assessment deleted successfully' });
+  } catch (err) {
+    await t.rollback();
+    console.error('Delete assessment error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+/**
  * GET /assessments/history
  */
 export const getHistory = async (req, res) => {
