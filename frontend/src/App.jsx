@@ -8,10 +8,11 @@ import Register from './pages/Register.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Assessment from './pages/Assessment.jsx';
 import Results from './pages/Results.jsx';
-import Profile from './pages/Profile.jsx';
+import ResultsOverview from './pages/ResultsOverview.jsx';
 import AdminDashboard from './pages/AdminDashboard.jsx';
 import AdminQuestions from './pages/AdminQuestions.jsx';
 import AdminAnalytics from './pages/AdminAnalytics.jsx';
+import AccountSettings from './pages/AccountSettings.jsx';
 
 function AppRoutes() {
   const { user, loading } = useAuth();
@@ -38,8 +39,9 @@ function AppRoutes() {
           <Route path="/dashboard" element={<ProtectedRoute requiredRole="student"><Dashboard /></ProtectedRoute>} />
           <Route path="/assessment" element={<ProtectedRoute requiredRole="student"><Assessment /></ProtectedRoute>} />
           <Route path="/assessment/:id" element={<ProtectedRoute requiredRole="student"><Assessment /></ProtectedRoute>} />
+          <Route path="/results" element={<ProtectedRoute requiredRole="student"><ResultsOverview /></ProtectedRoute>} />
           <Route path="/results/:id" element={<ProtectedRoute requiredRole="student"><Results /></ProtectedRoute>} />
-          <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+          <Route path="/account-settings" element={<ProtectedRoute><AccountSettings /></ProtectedRoute>} />
 
           {/* Admin */}
           <Route path="/admin" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />

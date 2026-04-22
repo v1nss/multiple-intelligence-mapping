@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAssessment } from '../hooks/useAssessment.js';
+import { useAuth } from '../context/AuthContext.jsx';
 
 const LIKERT_5_LABELS = ['Strongly Disagree', 'Disagree', 'Neutral', 'Agree', 'Strongly Agree'];
 const LIKERT_3_LABELS = ['Dislike it', 'Not Sure', 'Like it'];
@@ -8,6 +9,7 @@ const LIKERT_3_LABELS = ['Dislike it', 'Not Sure', 'Like it'];
 export default function Assessment() {
   const { id: existingId } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { startAssessment, fetchQuestions, submitAssessment, fetchHistory, loading, error } = useAssessment();
 
   // Phase: 'landing' (show start button) or 'questions' (show quiz)
@@ -20,6 +22,7 @@ export default function Assessment() {
   const [submitError, setSubmitError] = useState('');
   const [starting, setStarting] = useState(false);
   const [inProgressAssessment, setInProgressAssessment] = useState(null);
+  const [hasAssessmentHistory, setHasAssessmentHistory] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(!existingId);
   const initRef = useRef(false);
 
@@ -33,6 +36,8 @@ export default function Assessment() {
     setHistoryLoading(true);
     fetchHistory()
       .then(assessments => {
+        const hasHistory = Array.isArray(assessments) && assessments.length > 0;
+        setHasAssessmentHistory(hasHistory);
         const inProgress = assessments?.find(a => a.status === 'in_progress');
         if (inProgress) {
           setInProgressAssessment(inProgress);
@@ -111,121 +116,96 @@ export default function Assessment() {
   // ─── LANDING PAGE ──────────────────────────────────────────────
   if (phase === 'landing') {
     return (
-      <div className="mx-auto max-w-3xl space-y-8 px-4 py-8 sm:px-6 md:space-y-10 md:py-10 pb-12">
-        {/* Hero */}
-        <div className="text-center">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white text-4xl mb-5 shadow-lg">
-            📋
-          </div>
-          <h1 className="text-3xl font-extrabold text-gray-900 mb-3">MIPQ III + RIASEC Assessment</h1>
-          <p className="text-gray-500 text-lg max-w-xl mx-auto">
-            Discover your unique intelligence profile and career interests through this comprehensive assessment.
+      <div className="mx-auto min-h-[calc(100vh-4rem)] w-full max-w-6xl px-4 py-8 sm:px-6 md:py-10">
+        <div className="mx-auto flex max-w-4xl flex-col items-center text-center">
+          <h1 className="text-3xl font-extrabold tracking-tight text-gray-900 sm:text-[40px]">
+            {hasAssessmentHistory ? 'Welcome back,' : 'Welcome to the MIM System,'}{' '}
+            <span className="text-blue-600">{user?.first_name || 'Student'}!</span>
+          </h1>
+          <p className="mt-2 text-sm text-gray-500 sm:text-base">
+            {hasAssessmentHistory
+              ? 'You already have assessment records. Start a new one or continue where you left off.'
+              : 'You don&apos;t have any records yet. Start your first assessment below.'}
           </p>
         </div>
 
-        {/* Info Cards */}
-        <div className="grid gap-4 sm:grid-cols-2 sm:gap-5">
-          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center text-xl">🧠</div>
-              <h3 className="font-semibold text-gray-900">Part 1 — Multiple Intelligences</h3>
+        <div className="mx-auto mt-8 w-full max-w-6xl rounded-2xl border border-gray-200 bg-white px-5 py-8 shadow-xl shadow-gray-300/35 sm:mt-10 sm:px-8 sm:py-10">
+          <div className="mx-auto flex max-w-3xl flex-col items-center text-center">
+            <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50">
+              <svg className="h-7 w-7 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 4.5a2.5 2.5 0 00-2.5 2.5v.6A3.4 3.4 0 003 10.9 3.1 3.1 0 006.1 14h.1m3.3-9.5A2.5 2.5 0 0112 2a2.5 2.5 0 012.5 2.5v.6a3.4 3.4 0 013.5 3.3A3.1 3.1 0 0114.9 14h-.1M12 22v-7m0 0a3 3 0 00-3-3m3 3a3 3 0 013-3m-3 0V9" />
+              </svg>
             </div>
-            <p className="text-sm text-gray-500 mb-2">
-              90 questions covering 9 intelligence domains based on Howard Gardner's theory.
+            <h2 className="text-3xl font-extrabold tracking-tight text-gray-900">Discover Your Hidden Potential</h2>
+            <p className="mt-3 max-w-xl text-sm leading-relaxed text-gray-500 sm:text-base">
+              Discover your dominant intelligences and get AI-powered recommendations for your Senior High School strand and future career path.
             </p>
-            <div className="flex items-center gap-2 text-xs text-indigo-600 font-medium">
-              <span className="px-2 py-0.5 bg-indigo-50 rounded-full">1-5 Likert Scale</span>
-              <span className="px-2 py-0.5 bg-indigo-50 rounded-full">9 Domains</span>
-            </div>
-          </div>
-          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-lg bg-cyan-100 flex items-center justify-center text-xl">🎯</div>
-              <h3 className="font-semibold text-gray-900">Part 2 — Career Interests</h3>
-            </div>
-            <p className="text-sm text-gray-500 mb-2">
-              60 questions exploring your career interests using the RIASEC model (Holland Code).
-            </p>
-            <div className="flex items-center gap-2 text-xs text-cyan-600 font-medium">
-              <span className="px-2 py-0.5 bg-cyan-50 rounded-full">1-3 Likert Scale</span>
-              <span className="px-2 py-0.5 bg-cyan-50 rounded-full">6 Types</span>
-            </div>
-          </div>
-        </div>
 
-        {/* What You'll Get */}
-        <div className="rounded-xl border border-gray-200 bg-gradient-to-br from-gray-50 to-white p-6">
-          <h3 className="font-semibold text-gray-900 mb-3">What you'll receive after completion:</h3>
-          <div className="grid sm:grid-cols-2 gap-3">
-            {[
-              { icon: '📊', text: 'Your MI intelligence profile with scores' },
-              { icon: '🧭', text: 'RIASEC career interest type' },
-              { icon: '🎓', text: 'Recommended SHS strand' },
-              { icon: '💼', text: 'Top career pathway matches' },
-            ].map((item, i) => (
-              <div key={i} className="flex items-center gap-2.5 text-sm text-gray-600">
-                <span className="text-lg">{item.icon}</span>
-                <span>{item.text}</span>
+            {!inProgressAssessment ? (
+              <button
+                onClick={handleStartNew}
+                disabled={starting || historyLoading}
+                className="mt-6 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-7 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/30 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {starting ? (
+                  <>
+                    <span className="h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />
+                    Starting...
+                  </>
+                ) : (
+                  <>
+                    Start Assessment
+                    <span aria-hidden="true">→</span>
+                  </>
+                )}
+              </button>
+            ) : (
+              <button
+                onClick={() => handleContinue(inProgressAssessment.id)}
+                className="mt-6 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-7 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/30 transition hover:bg-blue-700"
+              >
+                Continue Assessment
+                <span aria-hidden="true">→</span>
+              </button>
+            )}
+
+            <div className="mt-10 grid w-full grid-cols-1 gap-4 text-center sm:grid-cols-3">
+              <div className="flex flex-col items-center gap-2">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-purple-100 text-purple-600">✦</div>
+                <p className="text-xs font-medium text-gray-500">AI Analysis</p>
               </div>
-            ))}
+              <div className="flex flex-col items-center gap-2">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-green-100 text-green-600">⤴</div>
+                <p className="text-xs font-medium text-gray-500">Strand Recommendations</p>
+              </div>
+              <div className="flex flex-col items-center gap-2">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-100 text-amber-500">▣</div>
+                <p className="text-xs font-medium text-gray-500">Career Pathways</p>
+              </div>
+            </div>
           </div>
-        </div>
-
-        {/* Time Estimate */}
-        <div className="flex items-center justify-center gap-2 text-sm text-gray-400">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-          <span>Estimated time: <strong className="text-gray-600">2-5 minutes</strong> • 71 total questions</span>
         </div>
 
         {/* Errors */}
         {(error || submitError) && (
-          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error || submitError}</div>
+          <div className="mx-auto mt-6 max-w-2xl rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error || submitError}</div>
         )}
 
-        {/* Continue In-Progress */}
-        {historyLoading ? (
-          <div className="flex justify-center py-4">
-            <div className="w-6 h-6 border-3 border-gray-200 border-t-indigo-600 rounded-full animate-spin"></div>
+        {historyLoading && (
+          <div className="mt-6 flex justify-center">
+            <div className="h-6 w-6 rounded-full border-2 border-gray-200 border-t-blue-600 animate-spin" />
           </div>
-        ) : inProgressAssessment ? (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 p-5">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center text-xl">⏳</div>
-              <div>
-                <h3 className="font-semibold text-gray-900">You have an assessment in progress</h3>
-                <p className="text-sm text-gray-500">Continue where you left off, or complete it before starting a new one.</p>
-              </div>
-            </div>
-            <button
-              onClick={() => handleContinue(inProgressAssessment.id)}
-              className="w-full py-3 bg-amber-500 text-white font-semibold rounded-lg hover:bg-amber-600 transition shadow-md text-base"
-            >
-              ▶ Continue Assessment
-            </button>
-          </div>
-        ) : null}
+        )}
 
-        {/* Start Button */}
-        {!inProgressAssessment && (
+        <div className="mt-6 flex justify-center">
           <button
-            onClick={handleStartNew}
-            disabled={starting || historyLoading}
-            className="w-full py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold rounded-xl hover:from-indigo-700 hover:to-purple-700 transition shadow-lg text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            type="button"
+            onClick={() => navigate('/dashboard')}
+            className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50 hover:text-gray-800"
           >
-            {starting ? (
-              <span className="flex items-center justify-center gap-2">
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                Starting...
-              </span>
-            ) : (
-              '🚀 Start Assessment'
-            )}
+            Back to Dashboard
           </button>
-        )}
-
-        <p className="text-center text-xs text-gray-400 mt-4">
-          You can only have one assessment in progress at a time. Your answers are saved when you submit.
-        </p>
+        </div>
       </div>
     );
   }

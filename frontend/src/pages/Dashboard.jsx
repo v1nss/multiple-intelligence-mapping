@@ -358,7 +358,7 @@ export default function Dashboard() {
                   </div>
                 </div>
                 {completedHistory.length > 3 && (
-                  <button onClick={() => navigate('/profile')} className="text-xs font-semibold text-gray-500 hover:text-blue-600 transition">View Full History &gt;</button>
+                  <button onClick={() => navigate('/results')} className="text-xs font-semibold text-gray-500 hover:text-blue-600 transition">View All Results &gt;</button>
                 )}
               </div>
               <div className="overflow-x-auto">
