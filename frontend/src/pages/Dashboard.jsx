@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useAssessment } from '../hooks/useAssessment.js';
+import { hasTopTwoStrandTie, hasTopTwoCareerTie } from '../utils/resultTies.js';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from 'recharts';
@@ -166,7 +167,12 @@ export default function Dashboard() {
   // Top 5 strand ranking
   const topStrands = (latestResult?.strand_ranking || []).slice(0, 5);
 
-  // Max strand score for relative percentage
+  const strandTie = latestResult
+    ? (latestResult.tie_notes?.strand ?? hasTopTwoStrandTie(latestResult.strand_ranking))
+    : false;
+  const careerTie = latestResult
+    ? (latestResult.tie_notes?.career ?? hasTopTwoCareerTie(latestResult.career_suggestions))
+    : false;
 
   return (
     <div className="mx-auto max-w-7xl space-y-8 px-4 py-8 sm:px-6 md:py-10 md:space-y-10 pb-12">
@@ -209,6 +215,32 @@ export default function Dashboard() {
 
       {!resultLoading && latestResult && (
         <div className="space-y-8 md:space-y-10">
+          {(strandTie || careerTie) && (
+            <div
+              className="rounded-xl border border-amber-200/90 bg-amber-50 px-4 py-3.5 text-sm text-amber-950 shadow-sm sm:px-5"
+              role="status"
+            >
+              <p className="font-semibold text-amber-900">Close match — ranking is not decisive</p>
+              <p className="mt-1.5 leading-relaxed text-amber-900/90">
+                {strandTie && careerTie && (
+                  <>Your top two strands and top two career matches are tied on this measure. Explore both options, get guidance if helpful, and retake the assessment later if you want a clearer signal.</>
+                )}
+                {strandTie && !careerTie && (
+                  <>Your first- and second-ranked strands have the same match percentage. Consider both strands and retake when you are ready for a sharper result.</>
+                )}
+                {!strandTie && careerTie && (
+                  <>Your top two career matches are tied. Treat them as equally strong starting points and retake later if you want more separation.</>
+                )}
+              </p>
+              <button
+                type="button"
+                onClick={() => navigate('/assessment')}
+                className="mt-3 inline-flex items-center rounded-lg bg-amber-800 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-amber-900"
+              >
+                Retake assessment
+              </button>
+            </div>
+          )}
           {/* ── 4 Summary Cards ── */}
           <div className="grid grid-cols-2 items-stretch gap-4 lg:grid-cols-4 lg:gap-5">
             {/* Dominant Intelligence */}

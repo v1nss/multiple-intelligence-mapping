@@ -1,5 +1,6 @@
 import {
   sequelize,
+  Assessment,
   AssessmentVersion,
   Domain,
   Strand,
@@ -9,6 +10,55 @@ import {
   Question,
 } from '../models/index.js';
 import { seedUsersWithResults } from './seedUsers.js';
+import { computeDomainScores, storeComputedScores } from '../services/scoringService.js';
+
+/** MIPQ item moved from Existential → Naturalistic; keep in sync with seedQuestions(). */
+const QUIET_MOMENT_QUESTION_TEXT =
+  'It is important to me to share a quiet moment with others.';
+
+/** Idempotent: fix domain_id for existing DBs seeded before the reassignment. */
+async function syncMipqQuietMomentToNaturalistic() {
+  const version = await AssessmentVersion.findOne({ where: { is_active: true }, raw: true });
+  if (!version) return 0;
+
+  const [existential, naturalistic] = await Promise.all([
+    Domain.findOne({ where: { name: 'Existential', type: 'MI' }, raw: true }),
+    Domain.findOne({ where: { name: 'Naturalistic', type: 'MI' }, raw: true }),
+  ]);
+  if (!existential || !naturalistic) return 0;
+
+  const [updated] = await Question.update(
+    { domain_id: naturalistic.id },
+    {
+      where: {
+        version_id: version.id,
+        question_text: QUIET_MOMENT_QUESTION_TEXT,
+        domain_id: existential.id,
+      },
+    },
+  );
+  if (updated > 0) {
+    console.log(`MIPQ: reassigned quiet-moment question to Naturalistic (${updated} row(s)).`);
+  }
+  return updated;
+}
+
+/** Recompute ComputedScore rows (admin analytics) after question→domain changes. */
+async function refreshAllCompletedComputedScores() {
+  const rows = await Assessment.findAll({
+    where: { status: 'completed' },
+    attributes: ['id'],
+    raw: true,
+  });
+  for (const { id } of rows) {
+    try {
+      const domainScores = await computeDomainScores(id);
+      if (domainScores.length > 0) await storeComputedScores(id, domainScores);
+    } catch (err) {
+      console.warn(`Skipped score refresh for assessment ${id}:`, err.message);
+    }
+  }
+}
 
 /**
  * Initialize the database: sync models + seed reference data.
@@ -31,10 +81,17 @@ export async function initializeDatabase() {
     await seedCareerWeights();
     await seedQuestions();
 
+    const quietMomentMoves = await syncMipqQuietMomentToNaturalistic();
+
     console.log('Seed data loaded.');
 
     // Seed demo users with completed assessments (idempotent)
     await seedUsersWithResults();
+
+    if (quietMomentMoves > 0) {
+      await refreshAllCompletedComputedScores();
+      console.log('Recomputed stored domain scores for all completed assessments.');
+    }
 
     return true;
   } catch (err) {
@@ -433,12 +490,12 @@ async function seedQuestions() {
     { domain: 'Intrapersonal', text: 'I often think about my own feelings and sentiments and seek reasons for them.', order: 26 },
     { domain: 'Intrapersonal', text: 'I spend time regularly reflecting on the important issues in life.', order: 27 },
     { domain: 'Intrapersonal', text: 'I like to read psychological or philosophical literature to increase my self-knowledge.', order: 28 },
-        // Existential (4 items)
+    // Existential (3 items)
     { domain: 'Existential', text: 'In the midst of busy everyday life I find it important to contemplate.', order: 29 },
     { domain: 'Existential', text: 'Even ordinary everyday life is full of miraculous things.', order: 30 },
     { domain: 'Existential', text: 'I often reflect on the meaning of life.', order: 31 },
-    { domain: 'Existential', text: 'It is important to me to share a quiet moment with others.', order: 32 },
-    // Naturalistic (3 items)
+    // Naturalistic (4 items)
+    { domain: 'Naturalistic', text: 'It is important to me to share a quiet moment with others.', order: 32 },
     { domain: 'Naturalistic', text: 'I enjoy the beauty and experiences related to nature.', order: 33 },
     { domain: 'Naturalistic', text: 'Protecting nature is important to me.', order: 34 },
     { domain: 'Naturalistic', text: 'I pay attention to my consumption habits in order to protect the environment.', order: 35 },

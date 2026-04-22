@@ -103,6 +103,22 @@ export async function generatePDFReport(studentInfo, results, meta) {
       doc.moveDown(0.5);
     });
 
+    if (results.tie_notes?.strand || results.tie_notes?.career) {
+      doc.moveDown(0.4);
+      const bits = [];
+      if (results.tie_notes.strand) bits.push('top two SHS strands');
+      if (results.tie_notes.career) bits.push('top two career matches');
+      doc
+        .fontSize(9)
+        .fillColor('#92400e')
+        .font('Helvetica')
+        .text(
+          `Note: Your ${bits.join(' and ')} show the same rounded match percentage; consider exploring each option and retaking later if you want a clearer ranking.`,
+          { width: pageWidth },
+        );
+      doc.fillColor('#000000').fontSize(10).font('Helvetica');
+    }
+
     doc.moveDown(1);
 
     // ──────────────────────────────────────────

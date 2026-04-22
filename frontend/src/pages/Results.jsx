@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAssessment } from '../hooks/useAssessment.js';
+import { hasTopTwoStrandTie, hasTopTwoCareerTie } from '../utils/resultTies.js';
 import {
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
   ResponsiveContainer, Tooltip,
@@ -217,6 +218,9 @@ export default function Results() {
   const visibleCareers = showAllCareers ? topCareers : topCareers.slice(0, 3);
   const activeCareerBreakdown = splitCareerBreakdown(selectedCareer?.breakdown);
 
+  const strandTie = result.tie_notes?.strand ?? hasTopTwoStrandTie(result.strand_ranking);
+  const careerTie = result.tie_notes?.career ?? hasTopTwoCareerTie(result.career_suggestions);
+
   return (
     <div className="mx-auto w-full max-w-7xl space-y-8 px-4 py-6 pb-14 sm:px-6 md:space-y-10 md:py-8 lg:px-8">
 
@@ -243,6 +247,33 @@ export default function Results() {
           </button>
         </div>
       </header>
+
+      {(strandTie || careerTie) && (
+        <div
+          className="rounded-2xl border border-amber-200/90 bg-amber-50 px-4 py-3.5 text-sm text-amber-950 shadow-sm sm:px-5"
+          role="status"
+        >
+          <p className="font-semibold text-amber-900">Close match — ranking is not decisive</p>
+          <p className="mt-1.5 leading-relaxed text-amber-900/90">
+            {strandTie && careerTie && (
+              <>Your top two strand options and your top two career matches show the same percentage. That usually means your profile sits between choices rather than a clear winner. Consider exploring both paths, talking with a teacher or counselor, and retaking the assessment later if you want a sharper signal.</>
+            )}
+            {strandTie && !careerTie && (
+              <>Your first- and second-ranked strands have the same match percentage, so the order is not decisive. Explore both strands, get guidance if helpful, and you can retake the assessment when you are ready for a clearer pattern.</>
+            )}
+            {!strandTie && careerTie && (
+              <>Your top two career matches are tied on this score. Use the list as a starting set rather than a strict order. Explore both careers, discuss options with someone you trust, and retake the assessment later if you want more separation.</>
+            )}
+          </p>
+          <button
+            type="button"
+            onClick={() => navigate('/assessment')}
+            className="mt-3 inline-flex items-center rounded-lg bg-amber-800 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-amber-900"
+          >
+            Retake assessment
+          </button>
+        </div>
+      )}
 
       {/* ═══════════════════════════════════════════
           HERO: Recommended Strand (full width)

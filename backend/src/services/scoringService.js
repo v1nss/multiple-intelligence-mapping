@@ -242,6 +242,20 @@ export async function computeCareerMatching(domainScores) {
   return attachCareerBreakdowns(careerScores, domainScoreMap);
 }
 
+/** Top-two tie by same rounded % as the web UI (Math.round(score * 100)). */
+function buildTieNotes(strandRanking, careerSuggestions) {
+  const displayPct = (score) => Math.round(Number(score) * 100);
+  const strand =
+    Array.isArray(strandRanking) &&
+    strandRanking.length >= 2 &&
+    displayPct(strandRanking[0]?.score) === displayPct(strandRanking[1]?.score);
+  const career =
+    Array.isArray(careerSuggestions) &&
+    careerSuggestions.length >= 2 &&
+    displayPct(careerSuggestions[0]?.score) === displayPct(careerSuggestions[1]?.score);
+  return { strand, career };
+}
+
 // ─────────────────────────────────────────────
 // 5. Full scoring pipeline (transactional)
 // ─────────────────────────────────────────────
@@ -275,7 +289,14 @@ export async function runFullScoringPipeline(assessmentId) {
     miScores.sort((a, b) => b.normalized_score - a.normalized_score);
     riasecScores.sort((a, b) => b.normalized_score - a.normalized_score);
 
-    return { mi_scores: miScores, riasec_scores: riasecScores, strand_ranking: strandRanking, career_suggestions: careerMatching.slice(0, 10) };
+    const careerTop = careerMatching.slice(0, 10);
+    return {
+      mi_scores: miScores,
+      riasec_scores: riasecScores,
+      strand_ranking: strandRanking,
+      career_suggestions: careerTop,
+      tie_notes: buildTieNotes(strandRanking, careerTop),
+    };
   } catch (err) {
     await transaction.rollback();
     throw err;
@@ -286,23 +307,16 @@ export async function runFullScoringPipeline(assessmentId) {
 // 6. Retrieve stored results
 // ─────────────────────────────────────────────
 export async function getAssessmentResults(assessmentId) {
-  const scores = await ComputedScore.findAll({
-    where: { assessment_id: assessmentId },
-    include: [{ model: Domain, as: 'domain', attributes: ['name', 'type'] }],
-  });
-
-  if (scores.length === 0) return null;
-
-  const domainScores = scores.map(s => ({
-    domain_id: s.domain_id,
-    raw_score: parseFloat(s.raw_score),
-    normalized_score: parseFloat(s.normalized_score),
-  }));
-
   const assessment = await Assessment.findByPk(assessmentId, {
-    attributes: ['version_id'],
+    attributes: ['version_id', 'status'],
     raw: true,
   });
+  if (!assessment || assessment.status !== 'completed') return null;
+
+  // Recompute from responses + current question→domain mapping so raw_score,
+  // normalized_score, and total_possible_score stay aligned (e.g. after MIPQ edits).
+  const domainScores = await computeDomainScores(assessmentId);
+  if (domainScores.length === 0) return null;
   const { domainLookup, questionCountMap } = await buildDomainMeta(assessment.version_id);
   const detailedScores = attachDomainTotals(domainScores, domainLookup, questionCountMap);
   const miScores = detailedScores
@@ -314,6 +328,13 @@ export async function getAssessmentResults(assessmentId) {
 
   const strandRanking = await computeStrandRanking(domainScores);
   const careerMatching = await computeCareerMatching(domainScores);
+  const careerTop = careerMatching.slice(0, 10);
 
-  return { mi_scores: miScores, riasec_scores: riasecScores, strand_ranking: strandRanking, career_suggestions: careerMatching.slice(0, 10) };
+  return {
+    mi_scores: miScores,
+    riasec_scores: riasecScores,
+    strand_ranking: strandRanking,
+    career_suggestions: careerTop,
+    tie_notes: buildTieNotes(strandRanking, careerTop),
+  };
 }
