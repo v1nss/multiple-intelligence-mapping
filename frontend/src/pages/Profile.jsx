@@ -11,10 +11,10 @@ export default function Profile() {
   const completedCount = history.filter(a => a.status === 'completed').length;
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">My Profile</h1>
+    <div className="mx-auto max-w-3xl space-y-6 px-4 py-8 sm:px-6 md:space-y-8 md:py-10 pb-12">
+      <h1 className="text-3xl font-bold text-gray-900">My Profile</h1>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm flex flex-col sm:flex-row gap-8 items-start">
+      <div className="flex flex-col items-start gap-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm sm:flex-row sm:gap-8 sm:p-8">
         {/* Avatar */}
         <div className="w-20 h-20 rounded-full bg-gradient-to-br from-indigo-600 to-purple-600 text-white flex items-center justify-center text-3xl font-bold shrink-0">
           {user?.first_name?.[0]}{user?.last_name?.[0]}

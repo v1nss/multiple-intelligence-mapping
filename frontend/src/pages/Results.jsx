@@ -155,6 +155,16 @@ function matchBadge(pct) {
   return 'bg-gray-500';
 }
 
+function splitCareerBreakdown(breakdown = []) {
+  const riasec = breakdown
+    .filter(item => item.type === 'RIASEC')
+    .sort((a, b) => b.weight - a.weight);
+  const mi = breakdown
+    .filter(item => item.type === 'MI')
+    .sort((a, b) => b.weight - a.weight);
+  return { riasec, mi };
+}
+
 /* ═══════════════════════════════════════════════
    COMPONENT
    ═══════════════════════════════════════════════ */
@@ -164,6 +174,7 @@ export default function Results() {
   const navigate = useNavigate();
   const { fetchResult, downloadReport, loading, error } = useAssessment();
   const [result, setResult] = useState(null);
+  const [selectedCareer, setSelectedCareer] = useState(null);
 
   useEffect(() => {
     if (id) fetchResult(id).then(data => setResult(data)).catch(() => {});
@@ -194,7 +205,7 @@ export default function Results() {
   // Radar data with short labels
   const radarData = (result.mi_scores || []).map(s => ({
     domain: MI_RADAR_SHORT[s.domain] || s.domain,
-    score: Math.round(s.normalized_score * 100),
+    score: parseFloat((s.normalized_score * 20).toFixed(2)),
   }));
 
   // Sort MI scores for detailed breakdown (highest first)
@@ -202,12 +213,13 @@ export default function Results() {
 
   // Top 6 careers
   const topCareers = (result.career_suggestions || []).slice(0, 6);
+  const activeCareerBreakdown = splitCareerBreakdown(selectedCareer?.breakdown);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 md:py-10 pb-12 space-y-8 md:space-y-10">
 
       {/* ── Header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-6 gap-4">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <button onClick={() => navigate('/dashboard')} className="text-sm text-gray-400 hover:text-blue-600 transition mb-2 flex items-center gap-1">
             <span>‹</span> Back to Dashboard
@@ -226,157 +238,165 @@ export default function Results() {
           <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
           Download PDF
         </button>
-      </div>
+      </header>
 
       {/* ═══════════════════════════════════════════
-          HERO: Recommended Strand
+          HERO: Recommended Strand (full width)
           ═══════════════════════════════════════════ */}
-      <div className="relative bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-600 rounded-2xl p-6 sm:p-8 text-white overflow-hidden mb-8">
-        <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/4" />
-        <div className="absolute bottom-0 left-1/3 w-64 h-64 bg-white/5 rounded-full translate-y-1/2" />
-        <div className="absolute top-1/2 right-1/4 w-32 h-32 bg-white/5 rounded-full" />
+      <section className="relative overflow-hidden rounded-xl bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-700 text-white shadow-md shadow-blue-900/15">
+        <div className="pointer-events-none absolute -right-12 -top-12 h-36 w-36 rounded-full bg-white/10 blur-xl" />
+        <div className="pointer-events-none absolute -bottom-12 left-1/2 h-40 w-40 -translate-x-1/2 rounded-full bg-indigo-900/20 blur-xl" />
 
-        <div className="relative z-10">
-          <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full mb-4">
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.331 0 4.476.884 6.042 2.346C13.524 18.884 15.669 18 18 18a8.987 8.987 0 013-.512V4.262A8.968 8.968 0 0018 3.75a8.967 8.967 0 00-6 2.292z" />
-            </svg>
-            Recommended Strand
-          </span>
-
-          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6">
-            <div className="flex-1">
-              <h2 className="text-3xl sm:text-4xl font-black mb-1">{topStrand?.strand || '—'}</h2>
-              <p className="text-white/70 text-sm font-medium mb-3">{STRAND_FULL[topStrand?.strand] || ''}</p>
-              <p className="text-white/80 text-sm leading-relaxed max-w-xl">
-                {topStrand && STRAND_WHY[topStrand.strand]
-                  ? STRAND_WHY[topStrand.strand](topMINames)
-                  : 'Your intelligence profile aligns well with this strand.'}
-              </p>
-            </div>
-            <div className="shrink-0 flex items-center gap-3">
-              {topStrand && (
-                <div className="bg-white/15 backdrop-blur-sm rounded-xl px-5 py-3 text-center border border-white/20">
-                  <div className="text-[10px] font-bold uppercase tracking-wide text-white/70">Match</div>
-                  <div className="text-3xl font-black">{Math.round((topStrand.score || 0) * 100)}%</div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Other strands inline */}
-          {result.strand_ranking?.length > 1 && (
-            <div className="mt-5 pt-4 border-t border-white/15 flex flex-wrap gap-2">
-              {result.strand_ranking.slice(1, 4).map((s, i) => (
-                <span key={s.strand_id || i} className="inline-flex items-center gap-1.5 text-[11px] font-semibold bg-white/10 backdrop-blur-sm px-3 py-1.5 rounded-lg border border-white/10">
-                  <span className="text-white/50">#{i + 2}</span>
-                  <span>{s.strand}</span>
-                  <span className="text-white/50">{Math.round((s.score || 0) * 100)}%</span>
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ═══════════════════════════════════════════
-          MAIN CONTENT: Charts + Sidebar
-          ═══════════════════════════════════════════ */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-
-        {/* LEFT 2/3 */}
-        <div className="lg:col-span-2 space-y-6">
-
-          {/* ── Profile Balance + Learning Style ── */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-            {/* Radar Chart */}
-            <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-lg">🎯</span>
-                <h3 className="text-base font-bold text-gray-900">Profile Balance</h3>
-              </div>
-              <ResponsiveContainer width="100%" height={280}>
-                <RadarChart data={radarData} cx="50%" cy="50%" outerRadius="70%">
-                  <PolarGrid stroke="#e2e8f0" />
-                  <PolarAngleAxis dataKey="domain" tick={{ fontSize: 10, fill: '#6B7280' }} />
-                  <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fontSize: 9, fill: '#9CA3AF' }} tickCount={5} />
-                  <Tooltip formatter={(v) => [`${v}%`, 'Score']} contentStyle={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 12 }} />
-                  <Radar name="Score" dataKey="score" stroke="#4F46E5" fill="#4F46E5" fillOpacity={0.2} strokeWidth={2} dot={{ r: 3, fill: '#4F46E5' }} />
-                </RadarChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* Learning Style */}
-            <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-              <div className="flex items-center gap-2 mb-4">
-                <span className="text-lg">💡</span>
-                <h3 className="text-base font-bold text-gray-900">Your Learning Style</h3>
-              </div>
-              <div className="mb-5">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-gray-900 mb-2">How You Learn Best:</h4>
-                <p className="text-sm text-gray-500 leading-relaxed">{learning.how}</p>
-              </div>
-              <div>
-                <h4 className="text-xs font-bold uppercase tracking-wider text-gray-900 mb-2">Study Tips:</h4>
-                <ul className="space-y-2">
-                  {learning.tips.map((tip, i) => (
-                    <li key={i} className="flex items-start gap-2 text-sm text-gray-500">
-                      <svg className="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                      {tip}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* RIGHT 1/3 SIDEBAR */}
-        <div className="space-y-6">
-
-          {/* ── Top Career Matches ── */}
-          <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-            <div className="flex items-center gap-2 mb-4">
-              <span className="text-lg">🎯</span>
-              <h3 className="text-base font-bold text-gray-900">Top Career Matches</h3>
-            </div>
-            <div className="space-y-3">
-              {topCareers.map((c, i) => {
-                const pct = Math.round(c.score * 100);
-                return (
-                  <div key={i} className="flex items-start gap-3">
-                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0 ${i === 0 ? 'bg-purple-600' : i === 1 ? 'bg-blue-600' : i === 2 ? 'bg-teal-600' : 'bg-gray-400'}`}>
-                      {i + 1}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-sm font-semibold text-gray-900 truncate">{c.career}</span>
-                        <span className={`text-[10px] font-bold text-white px-2 py-0.5 rounded-full shrink-0 ${matchBadge(pct)}`}>{pct}%</span>
-                      </div>
-                      <p className="text-[11px] text-gray-400 leading-snug mt-0.5">{c.description}</p>
-                    </div>
+        <div className="relative z-10 px-4 py-3 sm:px-5 sm:py-3.5 lg:px-6">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+            <div className="flex min-w-0 flex-1 flex-col gap-1.5 sm:flex-row sm:items-start sm:gap-3">
+              <span className="inline-flex w-fit shrink-0 items-center gap-1 rounded-full bg-white/15 px-2 py-0.5 text-[8px] font-bold uppercase tracking-wider text-white/90 backdrop-blur-sm sm:mt-1">
+                <svg className="h-2 w-2" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.331 0 4.476.884 6.042 2.346C13.524 18.884 15.669 18 18 18a8.987 8.987 0 013-.512V4.262A8.968 8.968 0 0018 3.75a8.967 8.967 0 00-6 2.292z" />
+                </svg>
+                Recommended Strand
+              </span>
+              <div className="min-w-0 flex-1">
+                <h2 className="text-xl font-black leading-none tracking-tight sm:text-2xl">
+                  {topStrand?.strand || '—'}
+                </h2>
+                <p className="mt-0.5 text-[11px] font-medium leading-tight text-white/75 sm:text-xs">{STRAND_FULL[topStrand?.strand] || ''}</p>
+                <p className="mt-1 line-clamp-2 max-w-2xl text-[11px] leading-snug text-white/85 sm:text-xs">
+                  {topStrand && STRAND_WHY[topStrand.strand]
+                    ? STRAND_WHY[topStrand.strand](topMINames)
+                    : 'Your intelligence profile aligns well with this strand.'}
+                </p>
+                {result.strand_ranking?.length > 1 && (
+                  <div className="mt-1.5 flex flex-wrap items-center gap-1 border-t border-white/10 pt-1.5">
+                    <span className="text-[8px] font-bold uppercase tracking-wider text-white/45">Also</span>
+                    {result.strand_ranking.slice(1, 5).map((s, i) => (
+                      <span
+                        key={s.strand_id || i}
+                        className="inline-flex items-center gap-1 rounded border border-white/10 bg-white/10 px-1.5 py-0.5 text-[9px] font-medium backdrop-blur-sm"
+                      >
+                        <span className="text-white/35">#{i + 2}</span>
+                        <span>{s.strand}</span>
+                        <span className="text-white/55">{Math.round((s.score || 0) * 100)}%</span>
+                      </span>
+                    ))}
                   </div>
-                );
-              })}
+                )}
+              </div>
             </div>
+
+            {topStrand && (
+              <div className="flex shrink-0 justify-center sm:justify-end">
+                <div className="rounded-lg border border-white/20 bg-white/15 px-3 py-1.5 text-center backdrop-blur-sm sm:min-w-[5.5rem]">
+                  <div className="text-[8px] font-bold uppercase tracking-wide text-white/65">Match</div>
+                  <div className="text-2xl font-black leading-none tabular-nums sm:text-3xl">
+                    {Math.round((topStrand.score || 0) * 100)}
+                    <span className="text-sm font-bold text-white/80">%</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
-      </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════
+          Balanced: Careers + Profile + Learning (equal cols on lg)
+          ═══════════════════════════════════════════ */}
+      <section className="grid grid-cols-1 items-stretch gap-6 md:grid-cols-2 md:gap-6 lg:grid-cols-12 lg:gap-8">
+        {/* Top Career Matches */}
+        <div className="flex min-h-[280px] flex-col rounded-xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6 md:col-span-2 lg:col-span-4 md:min-h-0">
+          <div className="mb-3 flex shrink-0 items-center gap-2 border-b border-gray-100 pb-3">
+            <span className="text-lg" aria-hidden>🎯</span>
+            <h3 className="text-base font-bold text-gray-900">Top Career Matches</h3>
+          </div>
+          <div className="min-h-0 flex-1 space-y-1">
+            {topCareers.map((c, i) => {
+              const pct = Math.round(c.score * 100);
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setSelectedCareer(c)}
+                  className="flex w-full items-start gap-3 rounded-lg p-2 text-left transition hover:bg-gray-50"
+                >
+                  <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold text-white ${i === 0 ? 'bg-purple-600' : i === 1 ? 'bg-blue-600' : i === 2 ? 'bg-teal-600' : 'bg-gray-400'}`}>
+                    {i + 1}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="truncate text-sm font-semibold text-gray-900">{c.career}</span>
+                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold text-white ${matchBadge(pct)}`}>{pct}%</span>
+                    </div>
+                    <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-gray-400">{c.description}</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+          <p className="mt-3 shrink-0 text-[11px] text-gray-400">Tap a career for RIASEC + MI detail.</p>
+        </div>
+
+        {/* Radar */}
+        <div className="flex min-h-[300px] flex-col rounded-xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6 lg:col-span-4 md:min-h-0">
+          <div className="mb-3 flex shrink-0 items-center gap-2 border-b border-gray-100 pb-3">
+            <span className="text-lg" aria-hidden>📊</span>
+            <h3 className="text-base font-bold text-gray-900">Profile Balance</h3>
+          </div>
+          <div className="min-h-0 w-full min-w-0 flex-1">
+            <ResponsiveContainer width="100%" height={280}>
+              <RadarChart data={radarData} cx="50%" cy="50%" outerRadius="70%">
+                <PolarGrid stroke="#e2e8f0" />
+                <PolarAngleAxis dataKey="domain" tick={{ fontSize: 10, fill: '#6B7280' }} />
+                <PolarRadiusAxis angle={30} domain={[0, 20]} tick={{ fontSize: 9, fill: '#9CA3AF' }} tickCount={5} />
+                <Tooltip formatter={(v) => [`${v}/20`, 'Score']} contentStyle={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 12 }} />
+                <Radar name="Score (/20)" dataKey="score" stroke="#4F46E5" fill="#4F46E5" fillOpacity={0.2} strokeWidth={2} dot={{ r: 3, fill: '#4F46E5' }} />
+              </RadarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Learning Style */}
+        <div className="flex min-h-[300px] flex-col rounded-xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6 lg:col-span-4 md:min-h-0">
+          <div className="mb-3 flex shrink-0 items-center gap-2 border-b border-gray-100 pb-3">
+            <span className="text-lg" aria-hidden>💡</span>
+            <h3 className="text-base font-bold text-gray-900">Your Learning Style</h3>
+          </div>
+          <div className="mb-5 shrink-0">
+            <h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-900">How You Learn Best</h4>
+            <p className="text-sm leading-relaxed text-gray-500">{learning.how}</p>
+          </div>
+          <div className="min-h-0 flex-1">
+            <h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-900">Study Tips</h4>
+            <ul className="space-y-2">
+              {learning.tips.map((tip, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm text-gray-500">
+                  <svg className="mt-0.5 h-4 w-4 shrink-0 text-green-500" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                  {tip}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </section>
 
       {/* ═══════════════════════════════════════════
           DETAILED SCORE BREAKDOWN
           ═══════════════════════════════════════════ */}
-      <div className="mb-8">
-        <h2 className="text-xl font-bold text-gray-900 mb-5">Detailed Score Breakdown</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <section>
+        <div className="mb-4 flex flex-col gap-1 border-b border-gray-200 pb-4 md:mb-5 md:flex-row md:items-end md:justify-between">
+          <h2 className="text-xl font-bold tracking-tight text-gray-900">Detailed Score Breakdown</h2>
+          <p className="text-xs text-gray-400">Nine MI domains, sorted by strength</p>
+        </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 xl:grid-cols-3">
           {miSorted.map((s) => {
             const pct = Math.round(s.normalized_score * 100);
             const level = scoreLevel(pct);
             const tags = MI_TAGS[s.domain] || [];
             const icon = MI_ICONS[s.domain] || '🧠';
+            const rawScore = Math.round(s.raw_score || 0);
+            const totalScore = Math.round(s.total_possible_score || 0);
             return (
-              <div key={s.domain_id} className={`bg-white border ${level.border} rounded-xl p-5 shadow-sm hover:shadow transition`}>
+              <div key={s.domain_id} className={`rounded-xl border bg-white p-5 shadow-sm transition hover:shadow ${level.border}`}>
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-xl ${level.bg} flex items-center justify-center text-lg`}>{icon}</div>
@@ -386,7 +406,7 @@ export default function Results() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <span className="text-lg font-bold text-gray-900">{pct}%</span>
+                    <span className="text-lg font-bold text-gray-900">{rawScore}/{totalScore}</span>
                     <p className={`text-[10px] font-bold uppercase tracking-wider ${level.text}`}>{level.label}</p>
                   </div>
                 </div>
@@ -404,30 +424,34 @@ export default function Results() {
             );
           })}
         </div>
-      </div>
+      </section>
 
       {/* ═══════════════════════════════════════════
           RIASEC SCORES (compact)
           ═══════════════════════════════════════════ */}
       {result.riasec_scores?.length > 0 && (
-        <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm mb-8">
-          <h2 className="text-lg font-bold text-gray-900 mb-1">RIASEC Interest Profile</h2>
-          <p className="text-xs text-gray-400 mb-4">Your Holland Code: <span className="font-bold text-gray-700">{result.riasec_scores.slice(0, 3).map(r => r.domain[0]).join('')}</span></p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
+          <div className="mb-4 flex flex-col gap-1 border-b border-gray-200 pb-4 sm:flex-row sm:items-end sm:justify-between">
+            <h2 className="text-xl font-bold tracking-tight text-gray-900">RIASEC Interest Profile</h2>
+            <p className="text-xs text-gray-400">
+              Holland code: <span className="font-bold text-gray-700">{result.riasec_scores.slice(0, 3).map(r => r.domain[0]).join('')}</span>
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-6">
             {result.riasec_scores.map((s, i) => {
-              console.log(s);
-              const pct = s.raw_score; // Math.round(s.normalized_score * 100);
+              const rawScore = Math.round(s.raw_score || 0);
+              const totalScore = Math.round(s.total_possible_score || 0);
               const isTop = i < 3;
               return (
                 <div key={s.domain_id} className={`rounded-xl p-4 text-center ${isTop ? 'bg-blue-50 border border-blue-200' : 'bg-gray-50 border border-gray-200'}`}>
                   <div className={`text-2xl font-black ${isTop ? 'text-blue-600' : 'text-gray-400'}`}>{s.domain[0]}</div>
                   <p className="text-xs font-semibold text-gray-700 mt-1">{s.domain}</p>
-                  <p className={`text-sm font-bold mt-1 ${isTop ? 'text-blue-600' : 'text-gray-500'}`}>{pct}/18</p>
+                  <p className={`text-sm font-bold mt-1 ${isTop ? 'text-blue-600' : 'text-gray-500'}`}>{rawScore}/{totalScore}</p>
                 </div>
               );
             })}
           </div>
-        </div>
+        </section>
       )}
 
       {/* ═══════════════════════════════════════════
@@ -456,6 +480,69 @@ export default function Results() {
           </div>
         </div>
       )} */}
+
+      {selectedCareer && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true">
+          <button
+            type="button"
+            aria-label="Close career details"
+            onClick={() => setSelectedCareer(null)}
+            className="absolute inset-0 bg-black/40 backdrop-blur-[1px]"
+          />
+          <div className="relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl border border-gray-200 bg-white shadow-2xl sm:max-h-[88vh] sm:rounded-2xl">
+            <div className="flex items-start justify-between gap-3 p-6 border-b border-gray-100">
+              <div>
+                <h3 className="text-xl font-bold text-gray-900">{selectedCareer.career}</h3>
+                <p className="text-sm text-gray-500 mt-1">{selectedCareer.description}</p>
+                <p className="text-xs font-semibold text-indigo-600 mt-2">Match Score: {Math.round((selectedCareer.score || 0) * 100)}%</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedCareer(null)}
+                className="w-9 h-9 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-6">
+              <div>
+                <h4 className="text-sm font-bold uppercase tracking-wider text-gray-900 mb-3">Top 3 RIASEC for this career</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {activeCareerBreakdown.riasec.slice(0, 3).map(item => (
+                    <div key={item.domain_id} className="rounded-xl border border-blue-200 bg-blue-50 p-3">
+                      <p className="text-xs font-bold text-blue-700">{item.domain}</p>
+                      <p className="text-[11px] text-blue-700/90 mt-1">Weight: {(item.weight * 100).toFixed(0)}%</p>
+                      <p className="text-[11px] text-blue-700/90">Your score: {(item.student_normalized_score * 100).toFixed(1)}%</p>
+                      <p className="text-[11px] text-blue-700/90">Contribution: {(item.contribution * 100).toFixed(1)}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-bold uppercase tracking-wider text-gray-900 mb-3">Related MI categories</h4>
+                <div className="space-y-3">
+                  {activeCareerBreakdown.mi.map(item => (
+                    <div key={item.domain_id} className="rounded-xl border border-gray-200 p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+                        <p className="text-sm font-bold text-gray-900">{item.domain}</p>
+                        <div className="text-right">
+                          <p className="text-xs font-semibold text-gray-700">Weight {(item.weight * 100).toFixed(0)}%</p>
+                          <p className="text-[11px] text-gray-500">
+                            Score {Math.round(item.student_raw_score || 0)}/{Math.round(item.student_total_possible_score || 0)}
+                          </p>
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-500 leading-relaxed">{item.domain_description}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

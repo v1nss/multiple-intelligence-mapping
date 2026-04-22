@@ -428,13 +428,13 @@ async function seedQuestions() {
     { domain: 'Interpersonal', text: 'I get along easily with different types of people.', order: 22 },
     { domain: 'Interpersonal', text: 'I make contact easily with other people.', order: 23 },
     { domain: 'Interpersonal', text: 'In negotiations and group work, I am able to support the group to find a consensus.', order: 24 },
-    // Intrapersonal (5 items)
+    // Intrapersonal (4 items)
     { domain: 'Intrapersonal', text: 'I am able to analyze my own motives and ways of action.', order: 25 },
     { domain: 'Intrapersonal', text: 'I often think about my own feelings and sentiments and seek reasons for them.', order: 26 },
     { domain: 'Intrapersonal', text: 'I spend time regularly reflecting on the important issues in life.', order: 27 },
     { domain: 'Intrapersonal', text: 'I like to read psychological or philosophical literature to increase my self-knowledge.', order: 28 },
-    { domain: 'Intrapersonal', text: 'In the midst of busy everyday life I find it important to contemplate.', order: 29 },
-    // Existential (3 items)
+        // Existential (4 items)
+    { domain: 'Existential', text: 'In the midst of busy everyday life I find it important to contemplate.', order: 29 },
     { domain: 'Existential', text: 'Even ordinary everyday life is full of miraculous things.', order: 30 },
     { domain: 'Existential', text: 'I often reflect on the meaning of life.', order: 31 },
     { domain: 'Existential', text: 'It is important to me to share a quiet moment with others.', order: 32 },

@@ -59,6 +59,16 @@ function matchBadgeColor(pct) {
   return 'bg-gray-400';
 }
 
+function splitCareerBreakdown(breakdown = []) {
+  const riasec = breakdown
+    .filter(item => item.type === 'RIASEC')
+    .sort((a, b) => b.weight - a.weight);
+  const mi = breakdown
+    .filter(item => item.type === 'MI')
+    .sort((a, b) => b.weight - a.weight);
+  return { riasec, mi };
+}
+
 /* ── SVG icons for summary cards ── */
 function BrainIcon() {
   return (
@@ -118,9 +128,10 @@ function StrandRankIcon({ rank }) {
 export default function Dashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { fetchHistory, fetchResult, downloadReport, history, loading, error } = useAssessment();
+  const { fetchHistory, fetchResult, downloadReport, history, error } = useAssessment();
   const [latestResult, setLatestResult] = useState(null);
   const [resultLoading, setResultLoading] = useState(true);
+  const [selectedCareer, setSelectedCareer] = useState(null);
   const completedHistory = history.filter(a => a.status === 'completed');
 
   useEffect(() => {
@@ -136,12 +147,10 @@ export default function Dashboard() {
       }
     }).catch(() => setResultLoading(false));
   }, []);
-console.log(latestResult)
   /* ── Derived data from latest result ── */
   const dominantRiasec = latestResult?.riasec_scores?.[0];
   const dominantMI = latestResult?.mi_scores?.[0];
   const topStrand = latestResult?.strand_ranking?.[0];
-  const overallStrength = latestResult?.mi_scores?.[0]; // highest MI
   const totalCompleted = completedHistory.length;
 
   // Bar chart data (MI scores only)
@@ -152,17 +161,17 @@ console.log(latestResult)
 
   // Top 4 career suggestions
   const topCareers = (latestResult?.career_suggestions || []).slice(0, 4);
+  const activeCareerBreakdown = splitCareerBreakdown(selectedCareer?.breakdown);
 
   // Top 5 strand ranking
   const topStrands = (latestResult?.strand_ranking || []).slice(0, 5);
 
   // Max strand score for relative percentage
-  const maxStrandScore = topStrands.length > 0 ? topStrands[0].score : 1;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+    <div className="mx-auto max-w-7xl space-y-8 px-4 py-8 sm:px-6 md:py-10 md:space-y-10 pb-12">
       {/* ── Welcome Header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 gap-4">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-blue-700">Welcome back, {user?.first_name}!</h1>
           <p className="text-gray-400 mt-1 text-sm">Your personalized Multiple Intelligence dashboard overview.</p>
@@ -174,9 +183,9 @@ console.log(latestResult)
           <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
           Take Assessment
         </button>
-      </div>
+      </header>
 
-      {error && <div className="bg-red-50 text-red-700 border border-red-200 rounded-lg px-4 py-3 text-sm mb-6">{error}</div>}
+      {error && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
       {/* ── Loading state ── */}
       {resultLoading && (
@@ -199,11 +208,11 @@ console.log(latestResult)
       )}
 
       {!resultLoading && latestResult && (
-        <>
+        <div className="space-y-8 md:space-y-10">
           {/* ── 4 Summary Cards ── */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div className="grid grid-cols-2 items-stretch gap-4 lg:grid-cols-4 lg:gap-5">
             {/* Dominant Intelligence */}
-            <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow transition">
+            <div className="flex h-full flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition hover:shadow sm:p-5">
               <BrainIcon />
               <p className="text-xs text-gray-400 font-medium mt-3 uppercase tracking-wider">Dominant Intelligence</p>
               <p className="text-xl font-bold text-gray-900 mt-1">{dominantMI?.domain || '—'}</p>
@@ -211,7 +220,7 @@ console.log(latestResult)
             </div>
 
             {/* Overall MI Strength */}
-            <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow transition">
+            <div className="flex h-full flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition hover:shadow sm:p-5">
               <SparkIcon />
               <p className="text-xs text-gray-400 font-medium mt-3 uppercase tracking-wider">Dominant Interest</p>
               <p className="text-xl font-bold text-gray-900 mt-1">{dominantRiasec?.domain || '—'}</p>
@@ -219,7 +228,7 @@ console.log(latestResult)
             </div>
 
             {/* Top Recommendation */}
-            <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow transition">
+            <div className="flex h-full flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition hover:shadow sm:p-5">
               <ShieldIcon />
               <p className="text-xs text-gray-400 font-medium mt-3 uppercase tracking-wider">Top Recommendation</p>
               <p className="text-xl font-bold text-gray-900 mt-1">{topStrand?.strand || '—'}</p>
@@ -227,7 +236,7 @@ console.log(latestResult)
             </div>
 
             {/* Total Completed */}
-            <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow transition">
+            <div className="flex h-full flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition hover:shadow sm:p-5">
               <ChartIcon />
               <p className="text-xs text-gray-400 font-medium mt-3 uppercase tracking-wider">Total Completed</p>
               <p className="text-xl font-bold text-gray-900 mt-1">{totalCompleted}</p>
@@ -235,19 +244,22 @@ console.log(latestResult)
             </div>
           </div>
 
-          {/* ── Three Column: Profile / Careers / Strand ── */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          {/* ── Profile / Careers / Strand ── */}
+          <div className="grid grid-cols-1 items-stretch gap-6 md:grid-cols-2 md:gap-6 lg:grid-cols-12 lg:gap-6">
 
             {/* Intelligence Profile - Bar Chart */}
-            <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-              <h3 className="text-base font-bold text-gray-900">Intelligence Profile</h3>
-              <p className="text-xs text-gray-400 mb-4">Visual representation of your strengths</p>
+            <div className="flex min-h-[300px] flex-col rounded-xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6 md:min-h-0 lg:col-span-4">
+              <div className="mb-3 border-b border-gray-100 pb-3">
+                <h3 className="text-base font-bold text-gray-900">Intelligence Profile</h3>
+                <p className="mt-1 text-xs text-gray-400">Visual representation of your strengths</p>
+              </div>
+              <div className="min-h-0 w-full min-w-0 flex-1">
               <ResponsiveContainer width="100%" height={260}>
                 <BarChart data={miBarData} margin={{ top: 5, right: 5, left: -15, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                   <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#6B7280' }} interval={0} angle={-25} textAnchor="end" height={50} />
-                  <YAxis domain={[0, 20]} tick={{ fontSize: 10, fill: '#9CA3AF' }} />
-                  <Tooltip formatter={(v) => [`${v}%`, 'Score']} contentStyle={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 12 }} />
+                  <YAxis domain={[0, 'dataMax']} tick={{ fontSize: 10, fill: '#9CA3AF' }} allowDecimals={false} />
+                  <Tooltip formatter={(v) => [v, 'Raw score']} contentStyle={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 12 }} />
                   <Bar dataKey="value" radius={[4, 4, 0, 0]} barSize={22}>
                     {miBarData.map((_, i) => (
                       <Cell key={i} fill={BAR_COLOR} />
@@ -255,26 +267,35 @@ console.log(latestResult)
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
+              </div>
             </div>
 
             {/* Career Pathways */}
-            <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-              <h3 className="text-base font-bold text-gray-900">Career Pathways</h3>
-              <p className="text-xs text-gray-400 mb-4">Based on your {topStrand?.strand || ''} recommendation</p>
-              <div className="grid grid-cols-2 gap-3">
+            <div className="flex min-h-[300px] flex-col rounded-xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6 md:min-h-0 lg:col-span-4">
+              <div className="mb-3 border-b border-gray-100 pb-3">
+                <h3 className="text-base font-bold text-gray-900">Career Pathways</h3>
+                <p className="mt-1 text-xs text-gray-400">Based on your {topStrand?.strand || ''} recommendation</p>
+              </div>
+              <div className="grid min-h-0 flex-1 grid-cols-2 gap-3">
                 {topCareers.map((c, i) => {
                   const pct = Math.round(c.score * 100);
                   return (
-                    <div key={i} className="border border-gray-100 rounded-xl p-3 hover:border-blue-200 hover:shadow-sm transition cursor-default">
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setSelectedCareer(c)}
+                      className="text-left border border-gray-100 rounded-xl p-3 hover:border-blue-200 hover:shadow-sm transition"
+                    >
                       <span className={`inline-block text-[10px] font-bold text-white px-2 py-0.5 rounded-full ${matchBadgeColor(pct)}`}>
                         {pct}% Match
                       </span>
                       <p className="font-bold text-sm text-gray-900 mt-2 leading-tight">{c.career}</p>
                       <p className="text-[10px] text-gray-400 mt-1 truncate">{c.description}</p>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
+              <p className="text-[11px] text-gray-400 mt-3">Click a career to view detail factors.</p>
               {/* {latestResult?.career_suggestions?.length > 4 && (
                 <Link
                   to={`/results/${completedHistory[0]?.id}`}
@@ -286,8 +307,8 @@ console.log(latestResult)
             </div>
 
             {/* Top Strand */}
-            <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-              <div className="flex items-center justify-between mb-1">
+            <div className="flex min-h-[280px] flex-col rounded-xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6 md:col-span-2 md:min-h-0 lg:col-span-4">
+              <div className="mb-3 flex items-center justify-between border-b border-gray-100 pb-3">
                 <h3 className="text-base font-bold text-gray-900">Top Strand</h3>
                 {completedHistory[0] && (
                   <Link to={`/results/${completedHistory[0].id}`} className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-200 text-gray-400 hover:text-blue-600 hover:border-blue-300 transition">
@@ -295,11 +316,11 @@ console.log(latestResult)
                   </Link>
                 )}
               </div>
-              <p className="text-xs text-gray-400 mb-4">Your compatibility ranking</p>
-              <div className="space-y-4">
+              <p className="mb-4 mt-1 text-xs text-gray-400">Your compatibility ranking</p>
+              <div className="min-h-0 flex-1 space-y-4">
                 {topStrands.map((s, i) => {
-                  const pct = Math.round((s.score / maxStrandScore) * 100);
                   const displayPct = Math.round(s.score * 100);
+                  const barWidthPct = Math.max(0, Math.min(displayPct, 100));
                   const barColor = strandBarColor(displayPct);
                   return (
                     <div key={s.strand_id} className="flex items-center gap-3">
@@ -313,7 +334,7 @@ console.log(latestResult)
                           <span className="text-sm font-bold" style={{ color: barColor }}>{displayPct}%</span>
                         </div>
                         <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: barColor }} />
+                          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${barWidthPct}%`, backgroundColor: barColor }} />
                         </div>
                       </div>
                     </div>
@@ -325,7 +346,7 @@ console.log(latestResult)
 
           {/* ── Recent Assessments ── */}
           {history.length > 0 && (
-            <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm mb-6">
+            <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-500">
@@ -395,7 +416,62 @@ console.log(latestResult)
               </button>
             </div>
           )}
-        </>
+        </div>
+      )}
+
+      {selectedCareer && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true">
+          <button
+            type="button"
+            aria-label="Close career details"
+            onClick={() => setSelectedCareer(null)}
+            className="absolute inset-0 bg-black/40 backdrop-blur-[1px]"
+          />
+          <div className="relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl border border-gray-200 bg-white shadow-2xl sm:max-h-[88vh] sm:rounded-2xl">
+            <div className="flex items-start justify-between gap-3 p-6 border-b border-gray-100">
+              <div>
+                <h3 className="text-xl font-bold text-gray-900">{selectedCareer.career}</h3>
+                <p className="text-sm text-gray-500 mt-1">{selectedCareer.description}</p>
+                <p className="text-xs font-semibold text-indigo-600 mt-2">Match Score: {Math.round((selectedCareer.score || 0) * 100)}%</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedCareer(null)}
+                className="w-9 h-9 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-6">
+              <div>
+                <h4 className="text-sm font-bold uppercase tracking-wider text-gray-900 mb-3">Top 3 RIASEC for this career</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {activeCareerBreakdown.riasec.slice(0, 3).map(item => (
+                    <div key={item.domain_id} className="rounded-xl border border-blue-200 bg-blue-50 p-3">
+                      <p className="text-xs font-bold text-blue-700">{item.domain}</p>
+                      <p className="text-[11px] text-blue-700/90 mt-1">Weight: {(item.weight * 100).toFixed(0)}%</p>
+                      <p className="text-[11px] text-blue-700/90">Your score: {(item.student_normalized_score * 100).toFixed(1)}%</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <h4 className="text-sm font-bold uppercase tracking-wider text-gray-900 mb-3">Related MI categories</h4>
+                <div className="space-y-3">
+                  {activeCareerBreakdown.mi.map(item => (
+                    <div key={item.domain_id} className="rounded-xl border border-gray-200 p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+                        <p className="text-sm font-bold text-gray-900">{item.domain}</p>
+                        <p className="text-xs font-semibold text-gray-700">Weight {(item.weight * 100).toFixed(0)}%</p>
+                      </div>
+                      <p className="text-xs text-gray-500 leading-relaxed">{item.domain_description}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

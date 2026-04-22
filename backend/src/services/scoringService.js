@@ -10,7 +10,112 @@ import {
   Career,
   CareerWeight,
 } from '../models/index.js';
-import { fn, col, literal } from 'sequelize';
+import { fn, col } from 'sequelize';
+
+async function buildDomainMeta(versionId) {
+  const [domains, questionRows] = await Promise.all([
+    Domain.findAll({
+      attributes: ['id', 'name', 'type', 'max_value'],
+      raw: true,
+    }),
+    Question.findAll({
+      attributes: [
+        'domain_id',
+        [fn('COUNT', col('id')), 'question_count'],
+      ],
+      where: { version_id: versionId, is_active: true },
+      group: ['domain_id'],
+      raw: true,
+    }),
+  ]);
+
+  const domainLookup = {};
+  domains.forEach(d => {
+    domainLookup[d.id] = d;
+  });
+
+  const questionCountMap = {};
+  questionRows.forEach(row => {
+    questionCountMap[row.domain_id] = parseInt(row.question_count, 10);
+  });
+
+  return { domainLookup, questionCountMap };
+}
+
+function attachDomainTotals(domainScores, domainLookup, questionCountMap) {
+  return domainScores.map(ds => {
+    const domain = domainLookup[ds.domain_id];
+    const maxValue = domain?.max_value || 5;
+    const questionCount = questionCountMap[ds.domain_id] || ds.question_count || 0;
+    const totalPossibleScore = questionCount * maxValue;
+
+    return {
+      domain_id: ds.domain_id,
+      domain: domain?.name || 'Unknown',
+      type: domain?.type || 'Unknown',
+      raw_score: ds.raw_score,
+      normalized_score: ds.normalized_score,
+      question_count: questionCount,
+      max_value: maxValue,
+      total_possible_score: totalPossibleScore,
+    };
+  });
+}
+
+function buildDomainScoreMap(domainScores) {
+  const scoreMap = {};
+  domainScores.forEach(ds => {
+    scoreMap[ds.domain_id] = {
+      normalized_score: ds.normalized_score,
+      raw_score: ds.raw_score,
+      total_possible_score: ds.total_possible_score || null,
+    };
+  });
+  return scoreMap;
+}
+
+async function attachCareerBreakdowns(careerScores, domainScoreMap) {
+  if (!careerScores.length) return careerScores;
+
+  const careerIds = careerScores.map(c => c.career_id);
+  const weightRows = await CareerWeight.findAll({
+    where: { career_id: careerIds },
+    include: [{
+      model: Domain,
+      as: 'domain',
+      attributes: ['name', 'type', 'description', 'max_value'],
+    }],
+    raw: true,
+    nest: true,
+  });
+
+  const breakdownByCareer = {};
+  for (const row of weightRows) {
+    const careerId = row.career_id;
+    const studentDomainScore = domainScoreMap[row.domain_id] || {};
+    const normalizedScore = studentDomainScore.normalized_score || 0;
+    const contribution = parseFloat((normalizedScore * row.weight).toFixed(4));
+
+    if (!breakdownByCareer[careerId]) breakdownByCareer[careerId] = [];
+    breakdownByCareer[careerId].push({
+      domain_id: row.domain_id,
+      domain: row.domain?.name || 'Unknown',
+      type: row.domain?.type || 'Unknown',
+      domain_description: row.domain?.description || '',
+      weight: parseFloat(row.weight),
+      student_normalized_score: parseFloat(normalizedScore.toFixed(4)),
+      student_raw_score: studentDomainScore.raw_score ?? null,
+      student_total_possible_score: studentDomainScore.total_possible_score ?? null,
+      contribution,
+    });
+  }
+
+  return careerScores.map(career => {
+    const breakdown = (breakdownByCareer[career.career_id] || [])
+      .sort((a, b) => b.contribution - a.contribution);
+    return { ...career, breakdown };
+  });
+}
 
 // ─────────────────────────────────────────────
 // 1. Compute raw and normalized domain scores
@@ -110,8 +215,7 @@ export async function computeStrandRanking(domainScores) {
 // 4. Compute career matching
 // ─────────────────────────────────────────────
 export async function computeCareerMatching(domainScores) {
-  const scoreMap = {};
-  domainScores.forEach(ds => { scoreMap[ds.domain_id] = ds.normalized_score; });
+  const domainScoreMap = buildDomainScoreMap(domainScores);
 
   const weights = await CareerWeight.findAll({
     include: [{ model: Career, as: 'career', attributes: ['name', 'description'] }],
@@ -129,13 +233,13 @@ export async function computeCareerMatching(domainScores) {
   const careerScores = Object.entries(careerMap).map(([careerId, career]) => {
     let score = 0;
     for (const w of career.weights) {
-      score += (scoreMap[w.domain_id] || 0) * w.weight;
+      score += (domainScoreMap[w.domain_id]?.normalized_score || 0) * w.weight;
     }
     return { career_id: parseInt(careerId), career: career.name, description: career.description, score: parseFloat(score.toFixed(4)) };
   });
 
   careerScores.sort((a, b) => b.score - a.score);
-  return careerScores;
+  return attachCareerBreakdowns(careerScores, domainScoreMap);
 }
 
 // ─────────────────────────────────────────────
@@ -154,22 +258,20 @@ export async function runFullScoringPipeline(assessmentId) {
 
     await transaction.commit();
 
+    const assessment = await Assessment.findByPk(assessmentId, {
+      attributes: ['version_id'],
+      raw: true,
+    });
+
+    const { domainLookup, questionCountMap } = await buildDomainMeta(assessment.version_id);
+    const detailedScores = attachDomainTotals(domainScores, domainLookup, questionCountMap);
+
     // Read-only aggregations
     const strandRanking = await computeStrandRanking(domainScores);
     const careerMatching = await computeCareerMatching(domainScores);
 
-    // Separate MI vs RIASEC
-    const allDomains = await Domain.findAll({ raw: true });
-    const domainLookup = {};
-    allDomains.forEach(d => { domainLookup[d.id] = d; });
-
-    const miScores = [];
-    const riasecScores = [];
-    for (const ds of domainScores) {
-      const d = domainLookup[ds.domain_id];
-      const entry = { domain_id: ds.domain_id, domain: d?.name || 'Unknown', raw_score: ds.raw_score, normalized_score: ds.normalized_score };
-      if (d?.type === 'MI') miScores.push(entry); else riasecScores.push(entry);
-    }
+    const miScores = detailedScores.filter(ds => ds.type === 'MI');
+    const riasecScores = detailedScores.filter(ds => ds.type === 'RIASEC');
     miScores.sort((a, b) => b.normalized_score - a.normalized_score);
     riasecScores.sort((a, b) => b.normalized_score - a.normalized_score);
 
@@ -197,14 +299,17 @@ export async function getAssessmentResults(assessmentId) {
     normalized_score: parseFloat(s.normalized_score),
   }));
 
-  const miScores = scores
-    .filter(s => s.domain.type === 'MI')
-    .map(s => ({ domain_id: s.domain_id, domain: s.domain.name, raw_score: parseFloat(s.raw_score), normalized_score: parseFloat(s.normalized_score) }))
+  const assessment = await Assessment.findByPk(assessmentId, {
+    attributes: ['version_id'],
+    raw: true,
+  });
+  const { domainLookup, questionCountMap } = await buildDomainMeta(assessment.version_id);
+  const detailedScores = attachDomainTotals(domainScores, domainLookup, questionCountMap);
+  const miScores = detailedScores
+    .filter(s => s.type === 'MI')
     .sort((a, b) => b.normalized_score - a.normalized_score);
-
-  const riasecScores = scores
-    .filter(s => s.domain.type === 'RIASEC')
-    .map(s => ({ domain_id: s.domain_id, domain: s.domain.name, raw_score: parseFloat(s.raw_score), normalized_score: parseFloat(s.normalized_score) }))
+  const riasecScores = detailedScores
+    .filter(s => s.type === 'RIASEC')
     .sort((a, b) => b.normalized_score - a.normalized_score);
 
   const strandRanking = await computeStrandRanking(domainScores);

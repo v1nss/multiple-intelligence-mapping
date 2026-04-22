@@ -111,9 +111,9 @@ export default function Assessment() {
   // ─── LANDING PAGE ──────────────────────────────────────────────
   if (phase === 'landing') {
     return (
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-12">
+      <div className="mx-auto max-w-3xl space-y-8 px-4 py-8 sm:px-6 md:space-y-10 md:py-10 pb-12">
         {/* Hero */}
-        <div className="text-center mb-10">
+        <div className="text-center">
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white text-4xl mb-5 shadow-lg">
             📋
           </div>
@@ -124,8 +124,8 @@ export default function Assessment() {
         </div>
 
         {/* Info Cards */}
-        <div className="grid sm:grid-cols-2 gap-4 mb-8">
-          <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+        <div className="grid gap-4 sm:grid-cols-2 sm:gap-5">
+          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center text-xl">🧠</div>
               <h3 className="font-semibold text-gray-900">Part 1 — Multiple Intelligences</h3>
@@ -138,7 +138,7 @@ export default function Assessment() {
               <span className="px-2 py-0.5 bg-indigo-50 rounded-full">9 Domains</span>
             </div>
           </div>
-          <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-lg bg-cyan-100 flex items-center justify-center text-xl">🎯</div>
               <h3 className="font-semibold text-gray-900">Part 2 — Career Interests</h3>
@@ -154,7 +154,7 @@ export default function Assessment() {
         </div>
 
         {/* What You'll Get */}
-        <div className="bg-gradient-to-br from-gray-50 to-white border border-gray-200 rounded-xl p-6 mb-8">
+        <div className="rounded-xl border border-gray-200 bg-gradient-to-br from-gray-50 to-white p-6">
           <h3 className="font-semibold text-gray-900 mb-3">What you'll receive after completion:</h3>
           <div className="grid sm:grid-cols-2 gap-3">
             {[
@@ -172,14 +172,14 @@ export default function Assessment() {
         </div>
 
         {/* Time Estimate */}
-        <div className="flex items-center justify-center gap-2 text-sm text-gray-400 mb-8">
+        <div className="flex items-center justify-center gap-2 text-sm text-gray-400">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
           <span>Estimated time: <strong className="text-gray-600">2-5 minutes</strong> • 71 total questions</span>
         </div>
 
         {/* Errors */}
         {(error || submitError) && (
-          <div className="bg-red-50 text-red-700 border border-red-200 rounded-lg px-4 py-3 text-sm mb-6">{error || submitError}</div>
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error || submitError}</div>
         )}
 
         {/* Continue In-Progress */}
@@ -188,7 +188,7 @@ export default function Assessment() {
             <div className="w-6 h-6 border-3 border-gray-200 border-t-indigo-600 rounded-full animate-spin"></div>
           </div>
         ) : inProgressAssessment ? (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 mb-6">
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-5">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center text-xl">⏳</div>
               <div>
@@ -236,7 +236,7 @@ export default function Assessment() {
 
   if (loading && questions.length === 0) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-16 flex flex-col items-center gap-4 text-gray-500">
+      <div className="mx-auto flex max-w-4xl flex-col items-center gap-4 px-4 py-16 text-gray-500 sm:px-6">
         <div className="w-10 h-10 border-4 border-gray-200 border-t-indigo-600 rounded-full animate-spin"></div>
         <p>Loading assessment...</p>
       </div>
@@ -244,16 +244,16 @@ export default function Assessment() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
-      <div className="mb-6">
+    <div className="mx-auto max-w-4xl space-y-6 px-4 py-8 sm:px-6 md:space-y-8 md:py-10 pb-16">
+      <div>
         <h1 className="text-2xl font-bold text-gray-900">MIPQ III + RIASEC Assessment</h1>
-        <p className="text-gray-500 text-sm mt-1">Part 1: Multiple Intelligences (1-5 scale) • Part 2: Career Interests (1-3 scale)</p>
+        <p className="mt-1 text-sm text-gray-500">Part 1: Multiple Intelligences (1-5 scale) • Part 2: Career Interests (1-3 scale)</p>
       </div>
 
-      {(error || submitError) && <div className="bg-red-50 text-red-700 border border-red-200 rounded-lg px-4 py-3 text-sm mb-6">{error || submitError}</div>}
+      {(error || submitError) && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error || submitError}</div>}
 
       {/* Progress */}
-      <div className="mb-8">
+      <div>
         <div className="h-2.5 bg-gray-200 rounded-full overflow-hidden mb-2">
           <div className="h-full bg-gradient-to-r from-indigo-600 to-purple-600 rounded-full transition-all duration-500" style={{ width: `${progress}%` }}></div>
         </div>
@@ -265,7 +265,7 @@ export default function Assessment() {
 
       {/* Section indicator */}
       {!isMixedPage && currentQuestions.length > 0 && (
-        <div className={`mb-6 px-4 py-3 rounded-lg border text-sm font-medium ${
+        <div className={`rounded-lg border px-4 py-3 text-sm font-medium ${
           currentSectionType === 'MI'
             ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
             : 'bg-cyan-50 border-cyan-200 text-cyan-700'
@@ -277,14 +277,14 @@ export default function Assessment() {
       )}
 
       {/* Questions */}
-      <div className="space-y-5 mb-8">
+      <div className="space-y-5">
         {currentQuestions.map((q, idx) => {
           const maxVal = q.max_value || (q.domain_type === 'RIASEC' ? 3 : 5);
           const labels = maxVal === 3 ? LIKERT_3_LABELS : LIKERT_5_LABELS;
           const scaleValues = Array.from({ length: maxVal }, (_, i) => i + 1);
 
           return (
-            <div key={q.id} className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+            <div key={q.id} className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
                   Question {currentPage * QUESTIONS_PER_PAGE + idx + 1}
@@ -322,7 +322,7 @@ export default function Assessment() {
       </div>
 
       {/* Navigation */}
-      <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+      <div className="flex items-center justify-between border-t border-gray-200 pt-6">
         <button onClick={() => setCurrentPage(p => Math.max(0, p - 1))} disabled={currentPage === 0}
           className="px-5 py-2 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed transition">
           ← Previous
