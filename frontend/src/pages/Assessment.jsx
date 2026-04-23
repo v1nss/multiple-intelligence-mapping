@@ -6,6 +6,15 @@ import { useAuth } from '../context/AuthContext.jsx';
 const LIKERT_5_LABELS = ['Strongly Disagree', 'Disagree', 'Neutral', 'Agree', 'Strongly Agree'];
 const LIKERT_3_LABELS = ['Dislike it', 'Not Sure', 'Like it'];
 
+function shuffleArray(items) {
+  const shuffled = [...items];
+  for (let i = shuffled.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
 export default function Assessment() {
   const { id: existingId } = useParams();
   const navigate = useNavigate();
@@ -25,6 +34,7 @@ export default function Assessment() {
   const [hasAssessmentHistory, setHasAssessmentHistory] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(!existingId);
   const initRef = useRef(false);
+  const questionnaireRef = useRef(null);
 
   const QUESTIONS_PER_PAGE = 5;
 
@@ -57,9 +67,19 @@ export default function Assessment() {
   const loadQuestions = async (aId) => {
     try {
       const qs = await fetchQuestions(aId);
-      setQuestions(qs);
+      const miQuestions = qs.filter(q => q.domain_type === 'MI');
+      const riasecQuestions = qs.filter(q => q.domain_type === 'RIASEC');
+      const otherQuestions = qs.filter(q => q.domain_type !== 'MI' && q.domain_type !== 'RIASEC');
+
+      const randomizedQuestions = [
+        ...shuffleArray(miQuestions),
+        ...shuffleArray(riasecQuestions),
+        ...otherQuestions,
+      ];
+
+      setQuestions(randomizedQuestions);
       const existing = {};
-      qs.forEach(q => { if (q.current_answer) existing[q.id] = q.current_answer; });
+      randomizedQuestions.forEach(q => { if (q.current_answer) existing[q.id] = q.current_answer; });
       setAnswers(existing);
     } catch (err) {
       console.error('Failed to load questions:', err);
@@ -112,6 +132,21 @@ export default function Assessment() {
     } catch (err) { setSubmitError(err.response?.data?.error || 'Failed to submit assessment'); }
     finally { setSubmitting(false); }
   };
+
+  useEffect(() => {
+    if (phase !== 'questions') return;
+
+    const scrollTarget = questionnaireRef.current;
+
+    // Wait for page content to render before scrolling.
+    requestAnimationFrame(() => {
+      if (scrollTarget && scrollTarget.scrollHeight > scrollTarget.clientHeight) {
+        scrollTarget.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  }, [currentPage, phase]);
 
   // ─── LANDING PAGE ──────────────────────────────────────────────
   if (phase === 'landing') {
@@ -211,9 +246,6 @@ export default function Assessment() {
   }
 
   // ─── QUESTIONS PAGE ────────────────────────────────────────────
-  const currentSectionType = currentQuestions.length > 0 ? currentQuestions[0].domain_type : null;
-  const isMixedPage = currentQuestions.some(q => q.domain_type !== currentSectionType);
-
   if (loading && questions.length === 0) {
     return (
       <div className="mx-auto flex max-w-4xl flex-col items-center gap-4 px-4 py-16 text-gray-500 sm:px-6">
@@ -224,10 +256,10 @@ export default function Assessment() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 px-4 py-8 sm:px-6 md:space-y-8 md:py-10 pb-16">
+    <div ref={questionnaireRef} className="mx-auto max-w-4xl space-y-6 px-4 py-8 sm:px-6 md:space-y-8 md:py-10 pb-16">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">MIPQ III + RIASEC Assessment</h1>
-        <p className="mt-1 text-sm text-gray-500">Part 1: Multiple Intelligences (1-5 scale) • Part 2: Career Interests (1-3 scale)</p>
+        <p className="mt-1 text-sm text-gray-500">Answer each item using the scale shown below each question.</p>
       </div>
 
       {(error || submitError) && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error || submitError}</div>}
@@ -235,26 +267,13 @@ export default function Assessment() {
       {/* Progress */}
       <div>
         <div className="h-2.5 bg-gray-200 rounded-full overflow-hidden mb-2">
-          <div className="h-full bg-gradient-to-r from-indigo-600 to-purple-600 rounded-full transition-all duration-500" style={{ width: `${progress}%` }}></div>
+          <div className="h-full bg-linear-to-r from-indigo-600 to-purple-600 rounded-full transition-all duration-500" style={{ width: `${progress}%` }}></div>
         </div>
         <div className="flex justify-between text-xs text-gray-400">
           <span>{answeredCount} / {questions.length} answered</span>
           <span>{Math.round(progress)}% complete</span>
         </div>
       </div>
-
-      {/* Section indicator */}
-      {!isMixedPage && currentQuestions.length > 0 && (
-        <div className={`rounded-lg border px-4 py-3 text-sm font-medium ${
-          currentSectionType === 'MI'
-            ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
-            : 'bg-cyan-50 border-cyan-200 text-cyan-700'
-        }`}>
-          {currentSectionType === 'MI'
-            ? '📋 Part 1 — Multiple Intelligences (MIPQ III) — Rate 1 (Strongly Disagree) to 5 (Strongly Agree)'
-            : '🎯 Part 2 — Career Interests (RIASEC) — Rate 1 (Dislike it) to 3 (Like it)'}
-        </div>
-      )}
 
       {/* Questions */}
       <div className="space-y-5">
@@ -269,19 +288,12 @@ export default function Assessment() {
                 <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
                   Question {currentPage * QUESTIONS_PER_PAGE + idx + 1}
                 </span>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                  q.domain_type === 'MI'
-                    ? 'text-indigo-600 bg-indigo-50'
-                    : 'text-cyan-600 bg-cyan-50'
-                }`}>
-                  {q.domain_name} ({q.domain_type})
-                </span>
               </div>
               <p className="text-base font-medium text-gray-900 mb-4 leading-relaxed">{q.question_text}</p>
               <div className="flex gap-2 flex-wrap">
                 {scaleValues.map(value => (
                   <label key={value}
-                    className={`flex-1 min-w-[70px] flex flex-col items-center gap-1 py-3 px-2 border-2 rounded-lg cursor-pointer transition-all text-center
+                    className={`flex-1 min-w-17.5 flex flex-col items-center gap-1 py-3 px-2 border-2 rounded-lg cursor-pointer transition-all text-center
                       ${answers[q.id] === value
                         ? (q.domain_type === 'MI' ? 'border-indigo-600 bg-indigo-50' : 'border-cyan-600 bg-cyan-50')
                         : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`}>
