@@ -65,10 +65,12 @@ export default function Navbar() {
       <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-4 md:px-8">
       {/* Logo */}
       <Link to="/" className="flex shrink-0 items-center gap-2.5 text-sm font-semibold text-gray-800 transition-colors hover:text-gray-600">
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-900">
-          <span className="text-[10px] font-bold text-white">MI</span>
-        </div>
-        <span className="hidden sm:inline uppercase tracking-wide">Logo</span>
+        <img
+          src="/mimlogo.png"
+          alt="MIM Logo"
+          className="h-8 w-8 rounded-full object-cover"
+        />
+        <span className="hidden sm:inline uppercase tracking-wide">MIM System</span>
       </Link>
 
       {/* Center Nav Links */}
