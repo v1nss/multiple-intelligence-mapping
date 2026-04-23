@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
 
 function formatBirthdate(value) {
@@ -9,7 +9,7 @@ function formatBirthdate(value) {
 }
 
 export default function AccountSettings() {
-  const { user, profileImage, updateProfileImage, logout } = useAuth();
+  const { user, profileImage, updateProfileImage, updateUser, logout } = useAuth();
   const fileInputRef = useRef(null);
 
   const initialForm = useMemo(
@@ -26,14 +26,42 @@ export default function AccountSettings() {
   );
 
   const [form, setForm] = useState(initialForm);
+  const [status, setStatus] = useState({ type: '', message: '' });
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setForm(initialForm);
+  }, [initialForm]);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSave = (event) => {
+  const handleSave = async (event) => {
     event.preventDefault();
+    setStatus({ type: '', message: '' });
+    setSaving(true);
+
+    try {
+      await updateUser({
+        first_name: form.firstName,
+        last_name: form.lastName,
+        email: form.email,
+        phone: form.phoneNumber,
+        birthdate: form.dateOfBirth || null,
+        gender: form.gender || null,
+        address: form.completeAddress,
+      });
+      setStatus({ type: 'success', message: 'Your profile has been updated.' });
+    } catch (err) {
+      setStatus({
+        type: 'error',
+        message: err?.response?.data?.error || 'Failed to save changes. Please try again.',
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleAvatarClick = () => {
@@ -153,11 +181,24 @@ export default function AccountSettings() {
                 </div>
                 <button
                   type="submit"
+                  disabled={saving}
                   className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
                 >
-                  Save Changes
+                  {saving ? 'Saving...' : 'Save Changes'}
                 </button>
               </div>
+
+              {status.message && (
+                <div
+                  className={`rounded-lg border px-4 py-3 text-sm ${
+                    status.type === 'success'
+                      ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                      : 'border-rose-200 bg-rose-50 text-rose-700'
+                  }`}
+                >
+                  {status.message}
+                </div>
+              )}
 
               <div className="grid gap-4 md:grid-cols-2">
                 <label className="space-y-1.5">

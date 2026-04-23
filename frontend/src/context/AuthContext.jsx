@@ -70,6 +70,13 @@ export function AuthProvider({ children }) {
     setProfileImage(imageData || null);
   };
 
+  const updateUser = async (payload) => {
+    const data = await authService.updateMe(payload);
+    setUser(data.user);
+    localStorage.setItem('mim_user', JSON.stringify(data.user));
+    return data;
+  };
+
   const logout = () => {
     localStorage.removeItem('mim_token');
     localStorage.removeItem('mim_user');
@@ -79,7 +86,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, profileImage, loading, login, register, logout, updateProfileImage }}>
+    <AuthContext.Provider value={{ user, token, profileImage, loading, login, register, logout, updateProfileImage, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

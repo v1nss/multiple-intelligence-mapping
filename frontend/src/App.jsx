@@ -3,8 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import Navbar from './components/Navbar.jsx';
 
-import Login from './pages/Login.jsx';
-import Register from './pages/Register.jsx';
+import AuthLayout from './components/AuthLayout.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Assessment from './pages/Assessment.jsx';
 import Results from './pages/Results.jsx';
@@ -31,9 +30,18 @@ function AppRoutes() {
       <Navbar />
       <main>
         <Routes>
-          {/* Public */}
-          <Route path="/login" element={user ? <Navigate to={user.role === 'admin' ? '/admin' : '/dashboard'} /> : <Login />} />
-          <Route path="/register" element={user ? <Navigate to="/dashboard" /> : <Register />} />
+          {/* Public auth — single shared layout so /login <-> /register transitions smoothly */}
+          {user ? (
+            <>
+              <Route path="/login" element={<Navigate to={user.role === 'admin' ? '/admin' : '/dashboard'} />} />
+              <Route path="/register" element={<Navigate to="/dashboard" />} />
+            </>
+          ) : (
+            <Route element={<AuthLayout />}>
+              <Route path="/login" element={null} />
+              <Route path="/register" element={null} />
+            </Route>
+          )}
 
           {/* Student */}
           <Route path="/dashboard" element={<ProtectedRoute requiredRole="student"><Dashboard /></ProtectedRoute>} />

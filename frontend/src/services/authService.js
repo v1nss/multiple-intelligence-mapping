@@ -15,4 +15,9 @@ export const authService = {
     const res = await api.get('/api/auth/me');
     return res.data;
   },
+
+  async updateMe(data) {
+    const res = await api.put('/api/auth/me', data);
+    return res.data;
+  },
 };

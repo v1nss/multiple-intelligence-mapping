@@ -103,3 +103,57 @@ export const getMe = async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 };
+
+/**
+ * PUT /auth/me
+ */
+export const updateMe = async (req, res) => {
+  try {
+    const {
+      first_name,
+      last_name,
+      email,
+      phone,
+      birthdate,
+      gender,
+      address,
+    } = req.body;
+
+    const user = await User.findByPk(req.user.id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    if (!first_name || !last_name || !email) {
+      return res.status(400).json({ error: 'First name, last name, and email are required' });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    if (normalizedEmail !== user.email) {
+      const existing = await User.findOne({ where: { email: normalizedEmail } });
+      if (existing) {
+        return res.status(409).json({ error: 'Email already registered' });
+      }
+    }
+
+    await user.update({
+      first_name: first_name.trim(),
+      last_name: last_name.trim(),
+      email: normalizedEmail,
+      phone: phone?.trim() || null,
+      birthdate: birthdate || null,
+      gender: gender || null,
+      address: address?.trim() || null,
+    });
+
+    const safeUser = await User.findByPk(user.id, {
+      attributes: { exclude: ['password_hash'] },
+    });
+
+    res.json({
+      message: 'Profile updated successfully',
+      user: safeUser,
+    });
+  } catch (err) {
+    console.error('UpdateMe error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+};

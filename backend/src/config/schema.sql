@@ -18,6 +18,8 @@ CREATE TABLE IF NOT EXISTS users (
   last_name VARCHAR(100) NOT NULL,
   gender VARCHAR(20),
   birthdate DATE,
+  phone VARCHAR(30),
+  address TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

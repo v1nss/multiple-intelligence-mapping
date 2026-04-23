@@ -39,6 +39,14 @@ const User = sequelize.define('User', {
     type: DataTypes.DATEONLY,
     allowNull: true,
   },
+  phone: {
+    type: DataTypes.STRING(30),
+    allowNull: true,
+  },
+  address: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
 }, {
   tableName: 'users',
   timestamps: true,
