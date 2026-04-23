@@ -47,6 +47,14 @@ const User = sequelize.define('User', {
     type: DataTypes.TEXT,
     allowNull: true,
   },
+  reset_password_token_hash: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+  },
+  reset_password_expires_at: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
 }, {
   tableName: 'users',
   timestamps: true,

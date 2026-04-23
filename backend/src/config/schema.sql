@@ -20,6 +20,8 @@ CREATE TABLE IF NOT EXISTS users (
   birthdate DATE,
   phone VARCHAR(30),
   address TEXT,
+  reset_password_token_hash VARCHAR(255),
+  reset_password_expires_at TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

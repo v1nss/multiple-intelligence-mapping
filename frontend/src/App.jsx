@@ -12,6 +12,8 @@ import AdminDashboard from './pages/AdminDashboard.jsx';
 import AdminQuestions from './pages/AdminQuestions.jsx';
 import AdminAnalytics from './pages/AdminAnalytics.jsx';
 import AccountSettings from './pages/AccountSettings.jsx';
+import ForgotPassword from './pages/ForgotPassword.jsx';
+import ResetPassword from './pages/ResetPassword.jsx';
 
 function AppRoutes() {
   const { user, loading } = useAuth();
@@ -42,6 +44,8 @@ function AppRoutes() {
               <Route path="/register" element={null} />
             </Route>
           )}
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
 
           {/* Student */}
           <Route path="/dashboard" element={<ProtectedRoute requiredRole="student"><Dashboard /></ProtectedRoute>} />
