@@ -284,7 +284,7 @@ export default function Dashboard() {
       {!resultLoading && latestResult && (
         <div className="space-y-8 md:space-y-10">
           <div className="space-y-2">
-            {completedHistory.length >= 2 && (
+            {completedHistory.length >= 1 && (
               <div className="flex flex-wrap gap-2 rounded-xl border border-gray-200 bg-white px-3 py-3 sm:px-4">
                 {[
                   { key: 'all', label: 'Overall average' },
