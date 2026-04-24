@@ -15,7 +15,7 @@ function shuffleArray(items) {
   return shuffled;
 }
 
-export default function Assessment() {
+export default function Assessment({ embedded = false }) {
   const { id: existingId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -150,17 +150,151 @@ export default function Assessment() {
 
   // ─── LANDING PAGE ──────────────────────────────────────────────
   if (phase === 'landing') {
+    const outerClass = embedded
+      ? 'w-full'
+      : 'mx-auto min-h-[calc(100vh-4rem)] w-full max-w-6xl px-4 py-8 sm:px-6 md:py-10';
+
+    // New account, no assessments yet
+    if (!existingId && !hasAssessmentHistory && !inProgressAssessment) {
+      // Dashboard (embedded): original “Discover Your Hidden Potential” onboarding card
+      if (embedded) {
+        return (
+          <div className={`${outerClass} space-y-6`}>
+            {historyLoading ? (
+              <div className="flex flex-col items-center justify-center gap-4 py-12 text-gray-500">
+                <div className="h-10 w-10 animate-spin rounded-full border-4 border-gray-200 border-t-blue-600" />
+                <p>Loading...</p>
+              </div>
+            ) : (
+              <>
+                <div className="mx-auto flex max-w-4xl flex-col items-center text-center">
+                  <h1 className="text-3xl font-extrabold tracking-tight text-gray-900 sm:text-[40px]">
+                    Welcome to the MIM System,{' '}
+                    <span className="text-blue-600">{user?.first_name || 'Student'}!</span>
+                  </h1>
+                  <p className="mt-2 text-sm text-gray-500 sm:text-base">
+                    {"You don't have any records yet. Start your first assessment below."}
+                  </p>
+                </div>
+
+                <div className="mx-auto w-full max-w-6xl rounded-2xl border border-gray-200 bg-white px-5 py-8 shadow-xl shadow-gray-300/35 sm:px-8 sm:py-10">
+                  <div className="mx-auto flex max-w-3xl flex-col items-center text-center">
+                    <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50">
+                      <svg className="h-7 w-7 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 4.5a2.5 2.5 0 00-2.5 2.5v.6A3.4 3.4 0 003 10.9 3.1 3.1 0 006.1 14h.1m3.3-9.5A2.5 2.5 0 0112 2a2.5 2.5 0 012.5 2.5v.6a3.4 3.4 0 013.5 3.3A3.1 3.1 0 0114.9 14h-.1M12 22v-7m0 0a3 3 0 00-3-3m3 3a3 3 0 013-3m-3 0V9" />
+                      </svg>
+                    </div>
+                    <h2 className="text-3xl font-extrabold tracking-tight text-gray-900">Discover Your Hidden Potential</h2>
+                    <p className="mt-3 max-w-xl text-sm leading-relaxed text-gray-500 sm:text-base">
+                      Discover your dominant intelligences and get AI-powered recommendations for your Senior High School strand and future career path.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleStartNew}
+                      disabled={starting}
+                      className="mt-6 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-7 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/30 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {starting ? (
+                        <>
+                          <span className="h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />
+                          Starting...
+                        </>
+                      ) : (
+                        <>
+                          Start Assessment
+                          <span aria-hidden="true">→</span>
+                        </>
+                      )}
+                    </button>
+                    <div className="mt-10 grid w-full grid-cols-1 gap-4 text-center sm:grid-cols-3">
+                      <div className="flex flex-col items-center gap-2">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-purple-100 text-purple-600">✦</div>
+                        <p className="text-xs font-medium text-gray-500">AI Analysis</p>
+                      </div>
+                      <div className="flex flex-col items-center gap-2">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-green-100 text-green-600">⤴</div>
+                        <p className="text-xs font-medium text-gray-500">Strand Recommendations</p>
+                      </div>
+                      <div className="flex flex-col items-center gap-2">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-100 text-amber-500">▣</div>
+                        <p className="text-xs font-medium text-gray-500">Career Pathways</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {(error || submitError) && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error || submitError}</div>
+            )}
+          </div>
+        );
+      }
+
+      // Full /assessment page: same chrome as Results overview empty state
+      return (
+        <div className={`${outerClass} space-y-6`}>
+          <header>
+            <h1 className="text-3xl font-bold text-gray-900">Assessment Results</h1>
+            <p className="mt-1 text-sm text-gray-400">All your completed assessment outputs in one place.</p>
+          </header>
+
+          {historyLoading && (
+            <div className="flex flex-col items-center justify-center gap-4 py-16 text-gray-500">
+              <div className="h-10 w-10 animate-spin rounded-full border-4 border-gray-200 border-t-blue-600" />
+              <p>Loading completed results...</p>
+            </div>
+          )}
+
+          {!historyLoading && (
+            <div className="rounded-xl border border-gray-200 bg-white p-8 text-center shadow-sm">
+              <div className="mb-3 text-4xl">📋</div>
+              <h2 className="text-xl font-bold text-gray-900">No completed results yet</h2>
+              <p className="mt-1 text-sm text-gray-500">Finish an assessment to see your results here.</p>
+              <button
+                type="button"
+                onClick={handleStartNew}
+                disabled={starting}
+                className="mt-5 inline-flex items-center rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {starting ? (
+                  <>
+                    <span className="mr-2 h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />
+                    Starting...
+                  </>
+                ) : (
+                  'Take Assessment'
+                )}
+              </button>
+            </div>
+          )}
+
+          {(error || submitError) && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error || submitError}</div>
+          )}
+
+          <div className="flex justify-center pt-2">
+            <button
+              type="button"
+              onClick={() => navigate('/dashboard')}
+              className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50 hover:text-gray-800"
+            >
+              Back to Dashboard
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     return (
-      <div className="mx-auto min-h-[calc(100vh-4rem)] w-full max-w-6xl px-4 py-8 sm:px-6 md:py-10">
+      <div className={outerClass}>
         <div className="mx-auto flex max-w-4xl flex-col items-center text-center">
           <h1 className="text-3xl font-extrabold tracking-tight text-gray-900 sm:text-[40px]">
-            {hasAssessmentHistory ? 'Welcome back,' : 'Welcome to the MIM System,'}{' '}
-            <span className="text-blue-600">{user?.first_name || 'Student'}!</span>
+            Welcome back, <span className="text-blue-600">{user?.first_name || 'Student'}!</span>
           </h1>
           <p className="mt-2 text-sm text-gray-500 sm:text-base">
-            {hasAssessmentHistory
-              ? 'You already have assessment records. Start a new one or continue where you left off.'
-              : 'You don&apos;t have any records yet. Start your first assessment below.'}
+            You already have assessment records. Start a new one or continue where you left off.
           </p>
         </div>
 
@@ -232,15 +366,17 @@ export default function Assessment() {
           </div>
         )}
 
-        <div className="mt-6 flex justify-center">
-          <button
-            type="button"
-            onClick={() => navigate('/dashboard')}
-            className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50 hover:text-gray-800"
-          >
-            Back to Dashboard
-          </button>
-        </div>
+        {!embedded && (
+          <div className="mt-6 flex justify-center">
+            <button
+              type="button"
+              onClick={() => navigate('/dashboard')}
+              className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50 hover:text-gray-800"
+            >
+              Back to Dashboard
+            </button>
+          </div>
+        )}
       </div>
     );
   }
@@ -248,7 +384,7 @@ export default function Assessment() {
   // ─── QUESTIONS PAGE ────────────────────────────────────────────
   if (loading && questions.length === 0) {
     return (
-      <div className="mx-auto flex max-w-4xl flex-col items-center gap-4 px-4 py-16 text-gray-500 sm:px-6">
+      <div className={`mx-auto flex max-w-4xl flex-col items-center gap-4 py-16 text-gray-500 ${embedded ? '' : 'px-4 sm:px-6'}`}>
         <div className="w-10 h-10 border-4 border-gray-200 border-t-indigo-600 rounded-full animate-spin"></div>
         <p>Loading assessment...</p>
       </div>
@@ -256,7 +392,10 @@ export default function Assessment() {
   }
 
   return (
-    <div ref={questionnaireRef} className="mx-auto max-w-4xl space-y-6 px-4 py-8 sm:px-6 md:space-y-8 md:py-10 pb-16">
+    <div
+      ref={questionnaireRef}
+      className={`mx-auto max-w-4xl space-y-6 md:space-y-8 md:py-10 pb-16 ${embedded ? 'py-4' : 'px-4 py-8 sm:px-6'}`}
+    >
       <div>
         <h1 className="text-2xl font-bold text-gray-900">MIPQ III + RIASEC Assessment</h1>
         <p className="mt-1 text-sm text-gray-500">Answer each item using the scale shown below each question.</p>

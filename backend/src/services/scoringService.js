@@ -5,6 +5,7 @@ import {
   Domain,
   ComputedScore,
   Assessment,
+  AssessmentVersion,
   Strand,
   StrandWeight,
   Career,
@@ -331,6 +332,127 @@ export async function getAssessmentResults(assessmentId) {
   const careerTop = careerMatching.slice(0, 10);
 
   return {
+    mi_scores: miScores,
+    riasec_scores: riasecScores,
+    strand_ranking: strandRanking,
+    career_suggestions: careerTop,
+    tie_notes: buildTieNotes(strandRanking, careerTop),
+  };
+}
+
+/**
+ * Dashboard: one completed attempt (scope 1–3) or mean domain scores across attempts (scope all).
+ * Only assessments using the active version are included when averaging (version consistency).
+ */
+export async function aggregateUserCompletedResults(userId, scope) {
+  const completed = await Assessment.findAll({
+    where: { user_id: userId, status: 'completed' },
+    attributes: ['id', 'version_id', 'completed_at', 'started_at'],
+    order: [
+      ['completed_at', 'ASC'],
+      ['started_at', 'ASC'],
+    ],
+    raw: true,
+  });
+
+  if (completed.length === 0) {
+    return { error: 'NO_COMPLETED', message: 'No completed assessments yet.' };
+  }
+
+  const activeVersion = await AssessmentVersion.findOne({
+    where: { is_active: true },
+    attributes: ['id'],
+    raw: true,
+  });
+  const eligible = activeVersion
+    ? completed.filter((c) => c.version_id === activeVersion.id)
+    : completed;
+
+  if (eligible.length === 0) {
+    return {
+      error: 'VERSION_MISMATCH',
+      message: 'No completed assessments match the active questionnaire version.',
+    };
+  }
+
+  const attemptNum = (s) => parseInt(String(s), 10);
+  if (scope === '1' || scope === '2' || scope === '3') {
+    const n = attemptNum(scope);
+    const row = eligible[n - 1];
+    if (!row) {
+      const label = n === 1 ? '1st' : n === 2 ? '2nd' : '3rd';
+      return {
+        error: 'ATTEMPT_NOT_FOUND',
+        message: `You do not have a ${label} completed assessment.`,
+      };
+    }
+    const results = await getAssessmentResults(row.id);
+    if (!results) {
+      return { error: 'NO_RESULTS', message: 'Could not load results for that assessment.' };
+    }
+    return {
+      aggregate: false,
+      scope,
+      assessment_count: 1,
+      assessment_ids: [row.id],
+      assessment: {
+        id: row.id,
+        status: 'completed',
+        started_at: row.started_at,
+        completed_at: row.completed_at,
+      },
+      ...results,
+    };
+  }
+
+  if (scope !== 'all') {
+    return { error: 'INVALID_SCOPE', message: 'scope must be 1, 2, 3, or all.' };
+  }
+
+  const byDomain = {};
+  for (const row of eligible) {
+    const dsList = await computeDomainScores(row.id);
+    for (const ds of dsList) {
+      const id = ds.domain_id;
+      if (!byDomain[id]) {
+        byDomain[id] = { sumNorm: 0, sumRaw: 0, n: 0, question_count: ds.question_count };
+      }
+      byDomain[id].sumNorm += ds.normalized_score;
+      byDomain[id].sumRaw += ds.raw_score;
+      byDomain[id].n += 1;
+    }
+  }
+
+  const versionId = activeVersion?.id || eligible[0].version_id;
+  const averagedDomainScores = Object.keys(byDomain).map((domainId) => {
+    const b = byDomain[domainId];
+    return {
+      domain_id: parseInt(domainId, 10),
+      raw_score: parseFloat((b.sumRaw / b.n).toFixed(4)),
+      normalized_score: parseFloat((b.sumNorm / b.n).toFixed(4)),
+      question_count: b.question_count,
+    };
+  });
+
+  const { domainLookup, questionCountMap } = await buildDomainMeta(versionId);
+  const enriched = attachDomainTotals(averagedDomainScores, domainLookup, questionCountMap);
+  const strandRanking = await computeStrandRanking(averagedDomainScores);
+  const careerMatching = await computeCareerMatching(enriched);
+  const careerTop = careerMatching.slice(0, 10);
+
+  const miScores = enriched
+    .filter((s) => s.type === 'MI')
+    .sort((a, b) => b.normalized_score - a.normalized_score);
+  const riasecScores = enriched
+    .filter((s) => s.type === 'RIASEC')
+    .sort((a, b) => b.normalized_score - a.normalized_score);
+
+  return {
+    aggregate: true,
+    scope: 'all',
+    assessment_count: eligible.length,
+    assessment_ids: eligible.map((r) => r.id),
+    assessment: null,
     mi_scores: miScores,
     riasec_scores: riasecScores,
     strand_ranking: strandRanking,

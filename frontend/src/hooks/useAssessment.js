@@ -89,6 +89,21 @@ export function useAssessment() {
     }
   }, []);
 
+  const fetchAggregate = useCallback(async (scope = 'all') => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await assessmentService.getAggregate(scope);
+      setResults(data);
+      return data;
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to load dashboard results');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const downloadReport = useCallback(async (assessmentId) => {
     try {
       const blob = await assessmentService.downloadReport(assessmentId);
@@ -118,6 +133,7 @@ export function useAssessment() {
     submitAssessment,
     fetchResult,
     fetchHistory,
+    fetchAggregate,
     downloadReport,
   };
 }

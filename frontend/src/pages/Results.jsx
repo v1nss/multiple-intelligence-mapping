@@ -183,9 +183,18 @@ export default function Results() {
   }, [id]);
 
   if (loading) return (
-    <div className="max-w-7xl mx-auto px-4 py-16 flex flex-col items-center gap-4 text-gray-500">
-      <div className="w-10 h-10 border-4 border-gray-200 border-t-blue-600 rounded-full animate-spin"></div>
-      <p>Loading results...</p>
+    <div className="mx-auto flex max-w-7xl flex-col items-center gap-6 px-4 py-16 text-gray-500">
+      <div className="flex flex-col items-center gap-4">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-gray-200 border-t-blue-600" />
+        <p>Loading results...</p>
+      </div>
+      <button
+        type="button"
+        onClick={() => navigate('/dashboard')}
+        className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50 hover:text-gray-800"
+      >
+        Back to Dashboard
+      </button>
     </div>
   );
 
@@ -253,16 +262,16 @@ export default function Results() {
           className="rounded-2xl border border-amber-200/90 bg-amber-50 px-4 py-3.5 text-sm text-amber-950 shadow-sm sm:px-5"
           role="status"
         >
-          <p className="font-semibold text-amber-900">Close match — ranking is not decisive</p>
+          <p className="font-semibold text-amber-900">Even scores — ranking is not decisive</p>
           <p className="mt-1.5 leading-relaxed text-amber-900/90">
             {strandTie && careerTie && (
-              <>Your top two strand options and your top two career matches show the same percentage. That usually means your profile sits between choices rather than a clear winner. Consider exploring both paths, talking with a teacher or counselor, and retaking the assessment later if you want a sharper signal.</>
+              <>Your top two strands and your top two career suggestions share the same rounded score, so this view cannot rank them in order. Explore both paths, talk with a teacher or counselor if it helps, and consider retaking on another day when you want a clearer spread.</>
             )}
             {strandTie && !careerTie && (
-              <>Your first- and second-ranked strands have the same match percentage, so the order is not decisive. Explore both strands, get guidance if helpful, and you can retake the assessment when you are ready for a clearer pattern.</>
+              <>Your first- and second-ranked strands share the same rounded score, so the order here is not decisive. Explore both strands, get guidance if helpful, and retaking on another day can give you a clearer pattern.</>
             )}
             {!strandTie && careerTie && (
-              <>Your top two career matches are tied on this score. Use the list as a starting set rather than a strict order. Explore both careers, discuss options with someone you trust, and retake the assessment later if you want more separation.</>
+              <>Your top two career suggestions share the same rounded score—use the list as a starting set rather than a strict order. Discuss options with someone you trust, and retaking on another day can help if you want more separation.</>
             )}
           </p>
           <button
@@ -270,7 +279,7 @@ export default function Results() {
             onClick={() => navigate('/assessment')}
             className="mt-3 inline-flex items-center rounded-lg bg-amber-800 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-amber-900"
           >
-            Retake assessment
+            Retake on another day
           </button>
         </div>
       )}
@@ -536,6 +545,16 @@ export default function Results() {
           </div>
         </div>
       )} */}
+
+      <div className="flex justify-center border-t border-slate-100 pt-8">
+        <button
+          type="button"
+          onClick={() => navigate('/dashboard')}
+          className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50 hover:text-gray-800"
+        >
+          Back to Dashboard
+        </button>
+      </div>
 
       {/* Optional improvement: render this modal through a portal for stricter stacking/isolation if global overlays grow. */}
       {selectedCareer && (

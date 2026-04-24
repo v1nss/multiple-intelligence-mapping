@@ -5,6 +5,7 @@ import {
   submitAssessment,
   getResult,
   getHistory,
+  getAggregate,
   deleteAssessment,
 } from '../controllers/assessmentController.js';
 import { downloadReport } from '../controllers/reportController.js';
@@ -17,6 +18,7 @@ router.use(requireAuth);
 
 router.post('/start', startAssessment);
 router.get('/history', getHistory);
+router.get('/aggregate', getAggregate);
 router.get('/:id/questions', requireOwnership(), getQuestions);
 router.post('/:id/submit', requireOwnership(), submitAssessment);
 router.get('/:id/result', requireOwnership(), getResult);

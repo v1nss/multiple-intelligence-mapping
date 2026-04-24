@@ -7,7 +7,13 @@ import {
   User,
   ComputedScore,
 } from '../models/index.js';
-import { runFullScoringPipeline, getAssessmentResults, computeStrandRanking } from '../services/scoringService.js';
+import {
+  runFullScoringPipeline,
+  getAssessmentResults,
+  computeStrandRanking,
+  computeDomainScores,
+  aggregateUserCompletedResults,
+} from '../services/scoringService.js';
 import sequelize from '../config/db.js';
 
 /**
@@ -214,43 +220,92 @@ export const deleteAssessment = async (req, res) => {
 };
 
 /**
+ * GET /assessments/aggregate?scope=1|2|3|all
+ */
+export const getAggregate = async (req, res) => {
+  try {
+    const scope = String(req.query.scope || 'all').toLowerCase();
+    if (!['1', '2', '3', 'all'].includes(scope)) {
+      return res.status(400).json({ error: 'Invalid scope. Use 1, 2, 3, or all.' });
+    }
+
+    const payload = await aggregateUserCompletedResults(req.user.id, scope);
+    if (payload.error) {
+      const status = payload.error === 'ATTEMPT_NOT_FOUND' ? 404 : 400;
+      return res.status(status).json({ error: payload.message });
+    }
+
+    const user = await User.findByPk(req.user.id, {
+      attributes: ['first_name', 'last_name', 'email', 'gender'],
+      raw: true,
+    });
+
+    res.json({
+      student: {
+        first_name: user.first_name,
+        last_name: user.last_name,
+        email: user.email,
+        gender: user.gender,
+      },
+      ...payload,
+    });
+  } catch (err) {
+    console.error('Get aggregate error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+/**
  * GET /assessments/history
  */
 export const getHistory = async (req, res) => {
   try {
-    const assessments = await Assessment.findAll({
-      where: { user_id: req.user.id },
-      include: [{ model: AssessmentVersion, as: 'version', attributes: ['version_name'] }],
-      order: [['started_at', 'DESC']],
-    });
+    const [assessments, completedAsc, domainRows] = await Promise.all([
+      Assessment.findAll({
+        where: { user_id: req.user.id },
+        include: [{ model: AssessmentVersion, as: 'version', attributes: ['version_name'] }],
+        order: [['started_at', 'DESC']],
+      }),
+      Assessment.findAll({
+        where: { user_id: req.user.id, status: 'completed' },
+        attributes: ['id'],
+        order: [
+          ['completed_at', 'ASC'],
+          ['started_at', 'ASC'],
+        ],
+        raw: true,
+      }),
+      Domain.findAll({ raw: true }),
+    ]);
 
-    // For completed assessments, include top MI domain and top strand
+    const attemptById = {};
+    completedAsc.forEach((row, i) => {
+      attemptById[row.id] = i + 1;
+    });
+    const domainById = Object.fromEntries(domainRows.map((d) => [d.id, d]));
+
     const results = [];
     for (const a of assessments) {
       const entry = {
-        id: a.id, status: a.status, started_at: a.started_at, completed_at: a.completed_at,
-        version_name: a.version.version_name, top_mi: null, top_strand: null,
+        id: a.id,
+        status: a.status,
+        started_at: a.started_at,
+        completed_at: a.completed_at,
+        version_name: a.version.version_name,
+        top_mi: null,
+        top_strand: null,
+        attempt_number: null,
       };
 
       if (a.status === 'completed') {
-        // Get the top MI score
-        const topMI = await ComputedScore.findOne({
-          where: { assessment_id: a.id },
-          include: [{ model: Domain, as: 'domain', where: { type: 'MI' }, attributes: ['name'] }],
-          order: [['normalized_score', 'DESC']],
-        });
-        if (topMI) entry.top_mi = topMI.domain.name;
+        entry.attempt_number = attemptById[a.id] ?? null;
+        const domainScores = await computeDomainScores(a.id);
+        if (domainScores.length > 0) {
+          const miTop = [...domainScores]
+            .filter((ds) => domainById[ds.domain_id]?.type === 'MI')
+            .sort((x, y) => y.normalized_score - x.normalized_score)[0];
+          if (miTop) entry.top_mi = domainById[miTop.domain_id].name;
 
-        // Get the top strand
-        const scores = await ComputedScore.findAll({
-          where: { assessment_id: a.id },
-          raw: true,
-        });
-        if (scores.length > 0) {
-          const domainScores = scores.map(s => ({
-            domain_id: s.domain_id,
-            normalized_score: parseFloat(s.normalized_score),
-          }));
           const strandRanking = await computeStrandRanking(domainScores);
           if (strandRanking.length > 0) entry.top_strand = strandRanking[0].strand;
         }

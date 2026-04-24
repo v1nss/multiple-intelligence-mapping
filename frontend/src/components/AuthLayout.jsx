@@ -90,7 +90,7 @@ function HeroCard() {
             Mapping
           </h2>
           <p className="mt-5 text-sm sm:text-base text-white/85 leading-relaxed">
-            An intelligent system that identifies and visualizes students&apos; strengths across multiple
+            An intelligent system that identifies and visualizes students' strengths across multiple
             intelligences to support personalized learning.
           </p>
         </div>
@@ -104,7 +104,7 @@ function HeroCard() {
           </div>
           <div>
             <p className="text-2xl sm:text-3xl font-extrabold">Real-Time</p>
-            <p className="mt-1 text-xs sm:text-sm text-white/80">Student Profiling &amp; Insights</p>
+            <p className="mt-1 text-xs sm:text-sm text-white/80">Student Profiling & Insights</p>
           </div>
         </div>
       </div>

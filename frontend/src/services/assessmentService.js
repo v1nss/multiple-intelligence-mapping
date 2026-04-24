@@ -26,6 +26,11 @@ export const assessmentService = {
     return res.data;
   },
 
+  async getAggregate(scope = 'all') {
+    const res = await api.get('/api/assessments/aggregate', { params: { scope } });
+    return res.data;
+  },
+
   async downloadReport(assessmentId) {
     const res = await api.get(`/api/assessments/${assessmentId}/report`, {
       responseType: 'blob',

@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useAssessment } from '../hooks/useAssessment.js';
 import { hasTopTwoStrandTie, hasTopTwoCareerTie } from '../utils/resultTies.js';
+import Assessment from './Assessment.jsx';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from 'recharts';
@@ -46,6 +47,13 @@ const STRAND_DESC = {
 
 /* ── Color helpers ── */
 const BAR_COLOR = '#3B82F6';
+
+function ordinalTake(n) {
+  if (n === 1) return '1st';
+  if (n === 2) return '2nd';
+  if (n === 3) return '3rd';
+  return `${n}th`;
+}
 
 function strandBarColor(pct) {
   if (pct >= 70) return '#3B82F6';
@@ -129,25 +137,62 @@ function StrandRankIcon({ rank }) {
 export default function Dashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { fetchHistory, fetchResult, downloadReport, history, error } = useAssessment();
+  const { fetchHistory, fetchAggregate, downloadReport, history, error } = useAssessment();
   const [latestResult, setLatestResult] = useState(null);
   const [resultLoading, setResultLoading] = useState(true);
+  const [viewScope, setViewScope] = useState('all');
   const [selectedCareer, setSelectedCareer] = useState(null);
+  /** Top-two ties from the last loaded Overall average (scope `all`), for comparing to a single take. */
+  const [overallTieSnapshot, setOverallTieSnapshot] = useState({ strand: false, career: false });
   const completedHistory = history.filter(a => a.status === 'completed');
+  const showEmbeddedAssessment = !resultLoading && !latestResult && completedHistory.length === 0;
+
+  const onScopeChange = useCallback((scope) => {
+    setViewScope(scope);
+    setResultLoading(true);
+    fetchAggregate(scope)
+      .then((data) => setLatestResult(data))
+      .catch(() => setLatestResult(null))
+      .finally(() => setResultLoading(false));
+  }, [fetchAggregate]);
 
   useEffect(() => {
-    fetchHistory().then(assessments => {
-      const completed = assessments?.filter(a => a.status === 'completed');
-      if (completed?.length > 0) {
-        fetchResult(completed[0].id)
-          .then(data => setLatestResult(data))
-          .catch(() => {})
-          .finally(() => setResultLoading(false));
-      } else {
-        setResultLoading(false);
-      }
-    }).catch(() => setResultLoading(false));
-  }, []);
+    let cancelled = false;
+    setResultLoading(true);
+    fetchHistory()
+      .then((assessments) => {
+        if (cancelled) return null;
+        const completed = assessments?.filter((a) => a.status === 'completed') ?? [];
+        if (completed.length === 0) {
+          setLatestResult(null);
+          setViewScope('all');
+          return null;
+        }
+        const initialScope = completed.length >= 2 ? 'all' : '1';
+        setViewScope(initialScope);
+        return fetchAggregate(initialScope);
+      })
+      .then((data) => {
+        if (!cancelled && data) setLatestResult(data);
+      })
+      .catch(() => {
+        if (!cancelled) setLatestResult(null);
+      })
+      .finally(() => {
+        if (!cancelled) setResultLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchHistory, fetchAggregate]);
+
+  useEffect(() => {
+    if (!latestResult?.aggregate) return;
+    setOverallTieSnapshot({
+      strand: hasTopTwoStrandTie(latestResult.strand_ranking),
+      career: hasTopTwoCareerTie(latestResult.career_suggestions),
+    });
+  }, [latestResult]);
   /* ── Derived data from latest result ── */
   const dominantRiasec = latestResult?.riasec_scores?.[0];
   const dominantMI = latestResult?.mi_scores?.[0];
@@ -167,29 +212,57 @@ export default function Dashboard() {
   // Top 5 strand ranking
   const topStrands = (latestResult?.strand_ranking || []).slice(0, 5);
 
-  const strandTie = latestResult
-    ? (latestResult.tie_notes?.strand ?? hasTopTwoStrandTie(latestResult.strand_ranking))
-    : false;
-  const careerTie = latestResult
-    ? (latestResult.tie_notes?.career ?? hasTopTwoCareerTie(latestResult.career_suggestions))
-    : false;
+  // Only use ranked lists (rounded %) so tie notes never appear when 1st/2nd/3rd (or overall)
+  // does not actually have a top-two tie — API tie_notes can disagree with what we display.
+  const strandTie = latestResult ? hasTopTwoStrandTie(latestResult.strand_ranking) : false;
+  const careerTie = latestResult ? hasTopTwoCareerTie(latestResult.career_suggestions) : false;
+
+  const isAggregateView = Boolean(latestResult?.aggregate);
+  const hasTakeTie = strandTie || careerTie;
+  const overallAnyTie = overallTieSnapshot.strand || overallTieSnapshot.career;
+  const showAmberTieCallout =
+    hasTakeTie &&
+    (isAggregateView || completedHistory.length < 2 || overallAnyTie);
+  const showOverallAverageHint =
+    hasTakeTie &&
+    !isAggregateView &&
+    completedHistory.length >= 2 &&
+    !overallAnyTie;
+
+  const dashboardSubtitle = (() => {
+    if (!latestResult) return null;
+    if (latestResult.aggregate) {
+      const n = latestResult.assessment_count ?? 0;
+      return n <= 1
+        ? 'Based on your completed assessment(s) for the current questionnaire version.'
+        : `Averaged across ${n} completed assessments (current questionnaire version only).`;
+    }
+    if (latestResult.scope && latestResult.scope !== 'all') {
+      return `Showing your ${ordinalTake(parseInt(String(latestResult.scope), 10))} take.`;
+    }
+    return null;
+  })();
+
+  const reportAssessmentId = latestResult?.aggregate ? null : latestResult?.assessment?.id;
 
   return (
     <div className="mx-auto max-w-7xl space-y-8 px-4 py-8 sm:px-6 md:py-10 md:space-y-10 pb-12">
-      {/* ── Welcome Header ── */}
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-blue-700">Welcome back, {user?.first_name}!</h1>
-          <p className="text-gray-400 mt-1 text-sm">Your personalized Multiple Intelligence dashboard overview.</p>
-        </div>
-        <button
-          onClick={() => navigate('/assessment')}
-          className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition shadow-lg shadow-blue-600/25 shrink-0"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
-          Take Assessment
-        </button>
-      </header>
+      {/* ── Welcome Header (hidden for first-time users — onboarding lives inside embedded Assessment) ── */}
+      {!showEmbeddedAssessment && (
+        <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-blue-700">Welcome back, {user?.first_name}!</h1>
+            <p className="text-gray-400 mt-1 text-sm">Your personalized Multiple Intelligence dashboard overview.</p>
+          </div>
+          <button
+            onClick={() => navigate('/assessment')}
+            className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition shadow-lg shadow-blue-600/25 shrink-0"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+            Take Assessment
+          </button>
+        </header>
+      )}
 
       {error && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
@@ -201,35 +274,93 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* ── Empty state ── */}
-      {!resultLoading && !latestResult && (
-        <div className="text-center py-16">
-          <div className="text-6xl mb-4">📋</div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">No assessments yet</h2>
-          <p className="text-gray-500 mb-6 max-w-sm mx-auto">Take your first MIPQ III + RIASEC assessment to discover your intelligence profile.</p>
-          <button onClick={() => navigate('/assessment')} className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition text-lg shadow-lg shadow-blue-600/25">
-            Start Assessment
-          </button>
-        </div>
+      {/* ── First-time / no completed results: full assessment flow on dashboard ── */}
+      {showEmbeddedAssessment && (
+        <section aria-label="Assessment" className="rounded-2xl border border-gray-200 bg-gray-50/80 p-4 sm:p-6">
+          <Assessment embedded />
+        </section>
       )}
 
       {!resultLoading && latestResult && (
         <div className="space-y-8 md:space-y-10">
-          {(strandTie || careerTie) && (
+          <div className="space-y-2">
+            {completedHistory.length >= 2 && (
+              <div className="flex flex-wrap gap-2 rounded-xl border border-gray-200 bg-white px-3 py-3 sm:px-4">
+                {[
+                  { key: 'all', label: 'Overall average' },
+                  { key: '1', label: '1st take' },
+                  { key: '2', label: '2nd take' },
+                  { key: '3', label: '3rd take' },
+                ].map(({ key, label }) => {
+                  const disabled =
+                    (key === '1' && completedHistory.length < 1) ||
+                    (key === '2' && completedHistory.length < 2) ||
+                    (key === '3' && completedHistory.length < 3);
+                  const active = viewScope === key;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      disabled={disabled}
+                      onClick={() => {
+                        if (disabled || key === viewScope) return;
+                        onScopeChange(key);
+                      }}
+                      className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                        active
+                          ? 'bg-blue-600 text-white shadow-sm'
+                          : disabled
+                            ? 'cursor-not-allowed bg-gray-100 text-gray-400'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {dashboardSubtitle && (
+              <p className="text-xs text-gray-500 pl-0.5">{dashboardSubtitle}</p>
+            )}
+          </div>
+
+          {showOverallAverageHint && (
+            <div
+              className="rounded-xl border border-sky-200/90 bg-sky-50 px-4 py-3.5 text-sm text-sky-950 shadow-sm sm:px-5"
+              role="status"
+            >
+              <p className="font-semibold text-sky-900">Check Overall average</p>
+              <p className="mt-1.5 leading-relaxed text-sky-900/90">
+                On this attempt, your top options include the same rounded score, so the order on this take is not decisive. Your{' '}
+                <span className="font-semibold">Overall average</span> blends every completed assessment and often separates these ranks. Select{' '}
+                <span className="font-semibold">Overall average</span> above to see the combined picture.
+              </p>
+              <button
+                type="button"
+                onClick={() => onScopeChange('all')}
+                className="mt-3 inline-flex items-center rounded-lg bg-sky-700 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-sky-800"
+              >
+                Open Overall average
+              </button>
+            </div>
+          )}
+
+          {showAmberTieCallout && (
             <div
               className="rounded-xl border border-amber-200/90 bg-amber-50 px-4 py-3.5 text-sm text-amber-950 shadow-sm sm:px-5"
               role="status"
             >
-              <p className="font-semibold text-amber-900">Close match — ranking is not decisive</p>
+              <p className="font-semibold text-amber-900">Even scores — ranking is not decisive</p>
               <p className="mt-1.5 leading-relaxed text-amber-900/90">
                 {strandTie && careerTie && (
-                  <>Your top two strands and top two career matches are tied on this measure. Explore both options, get guidance if helpful, and retake the assessment later if you want a clearer signal.</>
+                  <>Your top two strands and your top two career suggestions share the same rounded score, so this view cannot separate them in order. Explore both paths, get guidance if helpful, and consider retaking on another day when you want a clearer spread.</>
                 )}
                 {strandTie && !careerTie && (
-                  <>Your first- and second-ranked strands have the same match percentage. Consider both strands and retake when you are ready for a sharper result.</>
+                  <>Your first- and second-ranked strands share the same rounded score, so the order here is not decisive. Consider both strands, and retaking on another day can give you a sharper ranking.</>
                 )}
                 {!strandTie && careerTie && (
-                  <>Your top two career matches are tied. Treat them as equally strong starting points and retake later if you want more separation.</>
+                  <>Your top two career suggestions share the same rounded score—treat them as equally strong starting points, not a strict order. Retaking on another day can help if you want more separation.</>
                 )}
               </p>
               <button
@@ -237,7 +368,7 @@ export default function Dashboard() {
                 onClick={() => navigate('/assessment')}
                 className="mt-3 inline-flex items-center rounded-lg bg-amber-800 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-amber-900"
               >
-                Retake assessment
+                Retake on another day
               </button>
             </div>
           )}
@@ -398,6 +529,7 @@ export default function Dashboard() {
                   <thead>
                     <tr className="border-b border-gray-200">
                       <th className="text-left py-3 px-4 text-xs font-semibold text-gray-400">Date</th>
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-gray-400">Take</th>
                       <th className="text-left py-3 px-4 text-xs font-semibold text-gray-400">Top Result</th>
                       <th className="text-left py-3 px-4 text-xs font-semibold text-gray-400">Recommendation</th>
                       <th className="text-left py-3 px-4 text-xs font-semibold text-gray-400">Actions</th>
@@ -410,6 +542,11 @@ export default function Dashboard() {
                           {a.completed_at
                             ? new Date(a.completed_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: '2-digit' })
                             : new Date(a.started_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: '2-digit' })}
+                        </td>
+                        <td className="py-3 px-4 text-gray-600">
+                          {a.status === 'completed' && a.attempt_number != null
+                            ? ordinalTake(a.attempt_number)
+                            : '—'}
                         </td>
                         <td className="py-3 px-4 font-medium text-gray-900">
                           {a.status === 'completed' ? (a.top_mi || '—') : '—'}
@@ -436,11 +573,12 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* ── Export as PDF ── */}
-          {completedHistory.length > 0 && (
+          {/* ── Export as PDF (single assessment only) ── */}
+          {reportAssessmentId && (
             <div className="flex justify-end">
               <button
-                onClick={() => downloadReport(completedHistory[0].id).catch(() => {})}
+                type="button"
+                onClick={() => downloadReport(reportAssessmentId).catch(() => {})}
                 className="flex items-center gap-2 px-5 py-2.5 border border-blue-200 text-blue-600 font-semibold rounded-xl hover:bg-blue-50 transition"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>

@@ -1,8 +1,9 @@
 import { useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAssessment } from '../hooks/useAssessment.js';
 
 export default function ResultsOverview() {
+  const navigate = useNavigate();
   const { fetchHistory, history, loading, error, downloadReport } = useAssessment();
 
   useEffect(() => {
@@ -94,6 +95,16 @@ export default function ResultsOverview() {
           </table>
         </div>
       )}
+
+      <div className="flex justify-center pt-2">
+        <button
+          type="button"
+          onClick={() => navigate('/dashboard')}
+          className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50 hover:text-gray-800"
+        >
+          Back to Dashboard
+        </button>
+      </div>
     </div>
   );
 }
